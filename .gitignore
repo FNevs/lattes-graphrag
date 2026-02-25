@@ -1,0 +1,41 @@
+# IDE
+.cursor/
+.vscode/
+
+# Ambientes virtuais
+.venv/
+venv/
+lattes-graphrag/.venv/
+
+# Segredos e variaveis de ambiente
+.env
+.env.*
+!.env.example
+lattes-graphrag/.env
+lattes-graphrag/.env.*
+!lattes-graphrag/.env.example
+
+# Cache e artefatos Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Artefatos de execucao do GraphRAG
+lattes-graphrag/output/
+lattes-graphrag/cache/
+lattes-graphrag/logs/
+lattes-graphrag/reporting/
+
+# Dados locais de ingestao
+lattes-graphrag/input/*
+!lattes-graphrag/input/.gitkeep
+lattes-graphrag/input_xml/*
+!lattes-graphrag/input_xml/.gitkeep
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
