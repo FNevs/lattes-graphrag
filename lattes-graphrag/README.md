@@ -17,6 +17,7 @@ lattes-graphrag/
   .env.example
   docs/
     ingestao_lattes_xml.md
+    fundamentacao_tcc.md    # Fundamentacao academica (objetivo, problema, DSR, PRISMA)
 ```
 
 ## Requisitos
@@ -59,5 +60,6 @@ arquivos da pasta `input/`.
 
 Detalhes de design e boas praticas deste pipeline:
 
-- `docs/ingestao_lattes_xml.md`
+- `docs/ingestao_lattes_xml.md` — Pipeline de ingestao XML
+- `docs/fundamentacao_tcc.md` — Fundamentacao academica (objetivo, pergunta de pesquisa, DSR, PRISMA)
 
