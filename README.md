@@ -3,7 +3,11 @@
 Projeto para preparar dados de curriculos Lattes em texto e indexar com
 GraphRAG.
 
-## Estrutura recomendada
+## Diagrama de arquitetura
+
+![Diagrama de arquitetura do pipeline](docs/diagramas/diagrama_arquitetura_pipeline.png)
+
+## Estrutura do repositorio
 
 ```text
 lattes-graphrag/
@@ -12,12 +16,15 @@ lattes-graphrag/
   prompts/                    # Prompts usados no pipeline GraphRAG
   scripts/
     extract_lattes_text.py    # Extracao + limpeza XML -> TXT
+  docs/
+    fundamentacao_tcc.md      # Fundamentacao academica (objetivo, problema, DSR, PRISMA)
+    CONTEXTO_PROJETO.md       # Briefing completo para IAs e modelos
+    ingestao_lattes_xml.md    # Documentacao tecnica do pipeline de ingestao
+    diagramas/                # Diagramas do projeto (Excalidraw, PNG)
   settings.yaml
   .env
   .env.example
-  docs/
-    ingestao_lattes_xml.md
-    fundamentacao_tcc.md    # Fundamentacao academica (objetivo, problema, DSR, PRISMA)
+  requirements.txt
 ```
 
 ## Requisitos
@@ -58,8 +65,7 @@ arquivos da pasta `input/`.
 
 ## Documentacao adicional
 
-Detalhes de design e boas praticas deste pipeline:
-
-- `docs/ingestao_lattes_xml.md` — Pipeline de ingestao XML
+- `docs/CONTEXTO_PROJETO.md` — Briefing completo para transferir contexto a outras IAs/modelos
 - `docs/fundamentacao_tcc.md` — Fundamentacao academica (objetivo, pergunta de pesquisa, DSR, PRISMA)
-
+- `docs/ingestao_lattes_xml.md` — Pipeline de ingestao XML
+- `docs/diagramas/` — Diagramas de arquitetura e fluxo do projeto
