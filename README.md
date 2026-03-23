@@ -58,10 +58,59 @@ python scripts/extract_lattes_text.py --input-dir input_xml --output-dir input
 
 3. O script cria um `.txt` por XML na pasta `input/`.
 
-## Proximo passo no GraphRAG
+## Como rodar o GraphRAG
 
-Depois da extracao, rode o indexador do GraphRAG para gerar o grafo sobre os
-arquivos da pasta `input/`.
+### 1. Indexacao (construcao do grafo)
+
+Depois de gerar os TXTs na pasta `input/`, rode o indexador para construir o
+grafo do conhecimento:
+
+```bash
+graphrag index --root .
+```
+
+O processo executa as seguintes etapas automaticamente:
+
+- Chunking dos textos (1200 tokens, overlap 100)
+- Extracao de entidades (`organization`, `person`, `geo`, `event`) via LLM
+- Sumarizacao de descricoes
+- Clustering de comunidades
+- Geracao de community reports
+- Criacao de embeddings (text-embedding-3-small)
+
+Os artefatos sao salvos em `output/` e os embeddings em `output/lancedb/`.
+
+### 2. Consultas ao grafo
+
+Apos a indexacao, utilize os diferentes modos de busca conforme a necessidade:
+
+**Local Search** — busca entidades e relacoes especificas no grafo:
+
+```bash
+graphrag query --root . --method local --query "Quais sao as areas de pesquisa do professor X?"
+```
+
+**Global Search** — visao agregada usando community reports:
+
+```bash
+graphrag query --root . --method global --query "Quais sao os principais temas de pesquisa entre os pesquisadores indexados?"
+```
+
+**Drift Search** — busca exploratoria que combina local e global:
+
+```bash
+graphrag query --root . --method drift --query "Quais pesquisadores possuem colaboracoes em comum na area de inteligencia artificial?"
+```
+
+### Exemplos de perguntas uteis
+
+| Tipo de consulta | Exemplo |
+| --- | --- |
+| Perfil individual | "Quais as publicacoes mais recentes do pesquisador Y?" |
+| Rede de colaboracao | "Quais pesquisadores colaboraram com a instituicao Z?" |
+| Mapeamento de area | "Quais sao as principais linhas de pesquisa representadas nos curriculos?" |
+| Cruzamento | "Quais pesquisadores atuam simultaneamente em machine learning e saude publica?" |
+| Tendencia | "Quais temas de pesquisa ganharam mais publicacoes nos ultimos 5 anos?" |
 
 ## Documentacao adicional
 
