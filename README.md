@@ -16,6 +16,7 @@ lattes-graphrag/
   prompts/                    # Prompts usados no pipeline GraphRAG
   scripts/
     extract_lattes_text.py    # Extracao + limpeza XML -> TXT
+    mapear_grafo.py           # Mapeamento de entidades, relacionamentos e comunidades
   docs/
     fundamentacao_tcc.md      # Fundamentacao academica (objetivo, problema, DSR, PRISMA)
     CONTEXTO_PROJETO.md       # Briefing completo para IAs e modelos
@@ -111,6 +112,24 @@ graphrag query --root . --method drift --query "Quais pesquisadores possuem cola
 | Mapeamento de area | "Quais sao as principais linhas de pesquisa representadas nos curriculos?" |
 | Cruzamento | "Quais pesquisadores atuam simultaneamente em machine learning e saude publica?" |
 | Tendencia | "Quais temas de pesquisa ganharam mais publicacoes nos ultimos 5 anos?" |
+
+## Mapeamento do Knowledge Graph
+
+Para gerar tabelas CSV com entidades, relacionamentos e comunidades, alem de
+estatisticas gerais do grafo:
+
+```bash
+python scripts/mapear_grafo.py
+```
+
+Os arquivos sao exportados em `output/tabelas/`:
+
+| Arquivo | Conteudo |
+| --- | --- |
+| `entidades.csv` | Todas as entidades extraidas (pessoa, organizacao, evento, geo, software) |
+| `relacionamentos.csv` | Conexoes entre entidades com peso e descricao |
+| `comunidades.csv` | Comunidades detectadas por nivel hierarquico |
+| `estatisticas.txt` | Resumo quantitativo do grafo |
 
 ## Documentacao adicional
 
