@@ -32,6 +32,12 @@ input/*
 input_xml/*
 !input_xml/.gitkeep
 
+# Dados pessoais (LGPD) e arquivos pesados: curriculos reais e dumps de banco
+db.dump
+*.dump
+lattesNAPI/
+*.zip
+
 # Arquivos do sistema operacional
 .DS_Store
 Thumbs.db
