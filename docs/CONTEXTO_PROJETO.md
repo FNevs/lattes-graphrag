@@ -22,7 +22,7 @@
 | **Repositório da monografia** | `tcc-monografia` (separado — texto LaTeX completo, já com 6 capítulos escritos) |
 | **Linguagem do código** | Python 3.10+ |
 | **Framework principal** | Microsoft GraphRAG |
-| **LLM utilizado** | `gpt-4o-mini` (Azure OpenAI) |
+| **LLM utilizado** | `gpt-4o-mini` no TCC1; `gpt-4.1-mini` no TCC2 (Azure OpenAI, spaincentral — ver `HANDOFF-TCC2.md`, seção 3) |
 | **Modelo de embedding** | `text-embedding-3-small` (Azure OpenAI) |
 | **Vector store** | LanceDB (local) |
 

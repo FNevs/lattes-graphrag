@@ -7,11 +7,11 @@
 completion_models:
   default_completion_model:
     model_provider: azure
-    model: gpt-4o-mini
+    model: gpt-4.1-mini
     auth_method: api_key
     api_key: ${GRAPHRAG_API_KEY}
-    deployment_name: gpt-4o-mini
-    api_base: https://filip-mm1gu1lh-eastus2.cognitiveservices.azure.com
+    deployment_name: gpt-4.1-mini
+    api_base: https://lattes-graphrag-tcc.openai.azure.com
     api_version: "2025-01-01-preview"
     retry:
       type: exponential_backoff
@@ -23,7 +23,7 @@ embedding_models:
     auth_method: api_key
     api_key: ${GRAPHRAG_API_KEY}
     deployment_name: text-embedding-3-small
-    api_base: https://filip-mm1gu1lh-eastus2.cognitiveservices.azure.com
+    api_base: https://lattes-graphrag-tcc.openai.azure.com
     api_version: "2023-05-15"
     dimensions: 1536
     retry:

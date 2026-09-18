@@ -57,7 +57,17 @@ artefatos, sem alucinação de fonte.
 
 Config atual (settings.yaml): chunk size 1200, overlap 100,
 entity_types = [organization, person, geo, event], max_gleanings 1,
-max_cluster_size 10, modelo `gpt-4o-mini`, embeddings `text-embedding-3-small`.
+max_cluster_size 10, modelo `gpt-4.1-mini`, embeddings `text-embedding-3-small`.
+
+**Mudança de modelo (set/2026).** O TCC1 usou `gpt-4o-mini`. A assinatura antiga
+expirou em 01/05/2026; a nova (Azure for Students) só permite as regiões
+canadacentral, spaincentral, belgiumcentral, mexicocentral e italynorth, e em
+todas elas a cota de `gpt-4o-mini` é zero. Por isso o TCC2 usa `gpt-4.1-mini`
+(versão 2025-04-14, aposentadoria prevista para 14/04/2027) no recurso
+`lattes-graphrag-tcc`, em spaincentral. Os embeddings não mudaram. Consequência:
+os números do TCC1 (1.368 / 1.403 / 232) são baseline de outro modelo — antes de
+aplicar a correção NFC, reindexar o mesmo currículo com o modelo novo para
+separar o efeito da troca de modelo do efeito da correção.
 
 ---
 
