@@ -1,8 +1,10 @@
 # Contexto do Projeto — Briefing para IAs e Modelos
 
-> **Use este documento como contexto inicial ao interagir com qualquer IA ou
-> modelo sobre este projeto.** Ele resume todas as decisões já tomadas, o estado
-> atual da implementação e, principalmente, o protocolo da revisão sistemática.
+> **Use este documento como contexto inicial ao interagir com qualquer IA sobre
+> este projeto.** Atualizado em 2026-09 — substitui a versão anterior, que
+> descrevia um estágio de planejamento já ultrapassado (RSL "a fazer", DSR de
+> 6 etapas, objetivos com verbos de processo). Leia também `HANDOFF-TCC2.md`,
+> nesta mesma pasta, para o estado técnico detalhado do pipeline.
 
 ---
 
@@ -10,14 +12,24 @@
 
 | Campo | Valor |
 | --- | --- |
-| **Título do TCC** | Aplicação grafo do conhecimento com LLM: um experimento currículo Lattes de pesquisadores |
+| **Título do TCC** | Aplicação de Grafo do Conhecimento com LLM: Um Experimento com Currículos Lattes de Pesquisadores |
+| **Aluno** | Filipe Neves Silva |
+| **Orientador** | Eduardo Manuel de Freitas Jorge |
+| **Instituição** | UNEB — Departamento de Ciências Exatas e da Terra |
+| **Etapa atual** | **TCC2** — TCC1 (monografia parcial) já entregue e aprovada pelo orientador |
 | **Tipo de trabalho** | Trabalho de Conclusão de Curso (TCC) — graduação |
-| **Repositório** | `lattes-graphrag/` |
+| **Repositório deste código** | `lattes-graphrag/` (este repositório) |
+| **Repositório da monografia** | `tcc-monografia` (separado — texto LaTeX completo, já com 6 capítulos escritos) |
 | **Linguagem do código** | Python 3.10+ |
 | **Framework principal** | Microsoft GraphRAG |
-| **LLM utilizado** | GPT-4o-mini (Azure OpenAI) |
-| **Modelo de embedding** | text-embedding-3-small (Azure OpenAI, 1536 dims) |
+| **LLM utilizado** | `gpt-4o-mini` (Azure OpenAI) |
+| **Modelo de embedding** | `text-embedding-3-small` (Azure OpenAI) |
 | **Vector store** | LanceDB (local) |
+
+> **Importante:** a redação acadêmica completa (introdução, fundamentação
+> teórica, trabalhos correlatos, metodologia, projeto, resultados parciais)
+> já está escrita e entregue no repositório `tcc-monografia` — não redigir
+> fundamentação aqui. Este repositório é só o código/pipeline.
 
 ---
 
@@ -27,236 +39,188 @@ Constrói um **grafo do conhecimento** a partir de **currículos Lattes** de
 pesquisadores brasileiros, usando o framework **GraphRAG** (Microsoft), para
 possibilitar **consultas semânticas** sobre os dados acadêmicos via LLM.
 
-### Pipeline implementado
+### Pipeline implementado (já em execução, não só planejado)
 
 ```
 XML Lattes (CNPq)
     │
     ▼
-[extract_lattes_text.py]  ← extração + limpeza (Unicode NFKC, remoção de
-    │                        controle, dedup, atributos como chave-valor)
+[scripts/extract_lattes_text.py]  ← extração + limpeza
+    │                                (normalização NFKC — ver "Limitação conhecida" abaixo)
     ▼
-TXT limpo (1 arquivo por currículo)
+TXT limpo (1 arquivo por currículo, em input/)
     │
     ▼
 [GraphRAG indexer]  ← chunking (1200 tokens, overlap 100)
     │                  extração de entidades: [organization, person, geo, event]
     │                  summarização de descrições
-    │                  clustering de comunidades (max 10)
+    │                  clustering de comunidades (max_cluster_size 10)
     │                  community reports
     │                  embeddings
     ▼
-Grafo do conhecimento + LanceDB
+output/*.parquet + output/graph.graphml + LanceDB
     │
     ▼
-[Consultas]  ← local_search, global_search, drift_search, basic_search
+[Consultas]  ← basic_search, local_search, global_search, drift_search
 ```
-
-### Diagrama de arquitetura
-
-![Diagrama de arquitetura do pipeline](diagramas/diagrama_arquitetura_pipeline.png)
 
 ### Estrutura de pastas
 
 ```
-lattes-graphrag/              # Raiz do repositório
+lattes-graphrag/
   input_xml/                  # XMLs brutos baixados do Lattes
   input/                      # TXTs limpos gerados pelo script
   output/                     # Saída do GraphRAG (grafo, embeddings, reports)
   output/lancedb/             # Vector store local (embeddings)
   prompts/                    # Prompts customizados do pipeline GraphRAG
   scripts/
-    extract_lattes_text.py    # Script de extração XML → TXT
+    extract_lattes_text.py    # Extração XML → TXT (normalizar_texto, ~linha 72)
+    mapear_grafo.py           # Estatísticas dos parquet (pandas)
+    figura_ego.py             # Visualização de ego-network (networkx + matplotlib)
   docs/
-    fundamentacao_tcc.md      # Fundamentação acadêmica completa
-    CONTEXTO_PROJETO.md       # Este arquivo (briefing para IAs)
-    ingestao_lattes_xml.md    # Documentação técnica do pipeline de ingestão
-    diagramas/                # Diagramas do projeto (Excalidraw, PNG)
-  settings.yaml               # Configuração do GraphRAG
-  .env                        # Chave da API (não versionado)
-  .env.example
+    CONTEXTO_PROJETO.md        # Este arquivo
+    HANDOFF-TCC2.md            # Estado técnico, limitações e plano de tarefas
+    fundamentacao_tcc.md       # Histórico — ver nota no topo do arquivo
+    ingestao_lattes_xml.md     # Documentação do pipeline de ingestão
+    diagramas/                 # Diagramas do projeto
+  settings.yaml                # Configuração do GraphRAG
+  .env                         # Chave da API (não versionado)
   requirements.txt
 ```
 
+> `db.dump` (dump PostgreSQL com vários currículos, para a etapa de
+> escalonamento) foi recebido mas **não faz parte deste repositório** — é
+> dado pessoal sensível (LGPD), mantido só local. Ver `HANDOFF-TCC2.md`,
+> seção 9, para como restaurá-lo e usá-lo.
+
 ---
 
-## Decisões acadêmicas já tomadas
+## Decisões acadêmicas — versão final, já entregue no TCC1
 
-### Pergunta de pesquisa
+### Problema de pesquisa (texto exato da monografia)
 
-> Como a construção de um grafo do conhecimento, potencializado por modelos de
-> linguagem de grande escala (LLMs), pode viabilizar a descoberta e a análise
-> semântica de informações contidas em currículos Lattes de pesquisadores?
+> Como conceber um artefato baseado em grafo do conhecimento e modelo de
+> linguagem de grande escala que, aplicado a Currículos Lattes em XML,
+> permita consultas semânticas e relacionais sobre informações acadêmicas,
+> indo além da correspondência por palavra-chave e da similaridade textual
+> entre documentos.
 
-### Objetivo geral
+### Objetivo geral (texto exato da monografia)
 
-Desenvolver e avaliar um artefato baseado em grafo do conhecimento,
-potencializado por LLMs (GraphRAG), para extração, estruturação e consulta
-semântica de informações contidas em currículos Lattes de pesquisadores.
+> Conceber um artefato computacional baseado em grafo do conhecimento e
+> modelo de linguagem de grande escala para consulta semântica de
+> informações extraídas de Currículos Lattes em XML.
 
-### Objetivos específicos
+### Objetivos específicos (texto exato da monografia)
 
-1. Realizar uma Revisão Sistemática da Literatura (RSL) sobre grafos do
-   conhecimento e LLMs no domínio acadêmico/curricular.
-2. Projetar e implementar o pipeline de ingestão XML → TXT.
-3. Configurar e executar o GraphRAG para construção do grafo.
-4. Avaliar a qualidade do grafo e das respostas em consultas semânticas.
-5. Discutir limitações, contribuições e extensões possíveis.
+1. Disponibilizar uma representação relacional de informações acadêmicas
+   extraídas de Currículos Lattes em XML.
+2. Demonstrar a viabilidade de consultas semânticas sobre dados curriculares
+   acadêmicos em formato semi-estruturado.
+3. Oferecer uma alternativa semântica e relacional à busca exclusivamente
+   baseada em palavra-chave na exploração de perfis acadêmicos.
+4. Estruturar uma base experimental que permita a representação de relações
+   entre pesquisadores, produções, áreas de atuação e vínculos acadêmicos.
 
-### Metodologia
+> Note que os verbos são de **entrega** (disponibilizar, demonstrar,
+> oferecer, estruturar), não de processo (não usar "estudar", "implementar",
+> "avaliar", "investigar" como objetivo específico).
 
-**Design Science Research (DSR)** — Peffers et al. (2007), com 6 etapas:
+### Metodologia — Design Science Research, **7 etapas** (não 6)
 
-1. Identificação do problema e motivação
-2. Definição dos objetivos da solução
-3. Design e desenvolvimento (o pipeline e o grafo)
-4. Demonstração (execução com Lattes reais)
-5. Avaliação (qualidade do grafo + respostas)
-6. Comunicação (TCC)
+Adaptado de Peffers et al. (2007):
+
+1. Identificação do problema
+2. Definição dos objetivos do artefato
+3. Concepção do artefato
+4. Desenvolvimento e refinamento do artefato
+5. Demonstração
+6. Avaliação preliminar
+7. Comunicação dos resultados
+
+**Onde o projeto está:** entre as etapas 4 e 5 — o artefato preliminar já foi
+desenvolvido e demonstrado sobre um currículo real; a expansão para um
+conjunto reduzido de currículos (etapa 4, continuação) e a avaliação
+preliminar (etapa 6) são o foco do TCC2. Ver tarefas detalhadas em
+`HANDOFF-TCC2.md`.
 
 O artefato é classificado como **instanciação** (sistema funcional).
 
 ---
 
-## Revisão Sistemática — Protocolo completo (PRISMA 2020)
+## Revisão Sistemática — já concluída (protocolo PRISMA 2020)
 
-> **Esta seção é a mais importante para tarefas de pesquisa.** Siga este
-> protocolo ao buscar, filtrar ou analisar artigos.
+A RSL **não é mais uma etapa pendente** — foi executada e está integralmente
+descrita no repositório `tcc-monografia` (capítulo "Trabalhos Relacionados").
 
-### Bases de dados
+- **Bases usadas**: Scopus, Web of Science, IEEE Xplore (não Google Scholar
+  nem ACM Digital Library — esses estavam no plano original mas não entraram
+  no protocolo final).
+- **17 estudos incluídos**, em três frentes: consulta semântica (KG+LLM+RAG);
+  extração de grafos/taxonomias; recomendação e descoberta de especialistas.
+- **Lacuna identificada**: nenhum dos 17 estudos trabalha com a Plataforma
+  Lattes ou dados curriculares em português; as iniciativas brasileiras
+  anteriores (Café, 2024) seguem centradas em similaridade textual, sem
+  relações explícitas.
+- **Artefatos completos**: `tcc-monografia/docs/revisao-sistematica.pdf`
+  (relatório da RSL) e `tcc-monografia/docs/resultados-rsl.json` (extração
+  estruturada dos 17 estudos, 10 perguntas cada).
 
-- Scopus
-- Web of Science
-- IEEE Xplore
-- ACM Digital Library
-- Google Scholar (complementar)
-
-### Período
-
-2020–2026 (foco nos avanços recentes com LLMs e grafos do conhecimento).
-
-### Idiomas aceitos
-
-Inglês e Português.
-
-### Strings de busca
-
-Foram definidas duas strings. Ambas podem ser usadas em paralelo nas bases.
-
-**String A — Foco direto em GraphRAG + domínio acadêmico:**
-
-```
-("knowledge graph" OR "graph-based RAG" OR "GraphRAG")
-AND ("LLM" OR "large language model")
-AND ("curriculum" OR "academic" OR "researcher" OR "scholarly")
-```
-
-Captura trabalhos que explicitamente combinam grafos do conhecimento com LLMs no
-contexto acadêmico. Mais restritiva; tende a retornar poucos resultados dado que
-"GraphRAG" é um termo recente (2024).
-
-**String B — Foco em extração de informação + perfis de pesquisadores:**
-
-```
-("knowledge graph" OR "ontology" OR "entity extraction")
-AND ("natural language processing" OR "NLP" OR "large language model" OR "LLM"
-     OR "retrieval-augmented generation" OR "RAG")
-AND ("researcher profile" OR "academic CV" OR "scientific production"
-     OR "scholarly data" OR "Lattes" OR "ORCID" OR "DBLP")
-```
-
-Mais ampla. Inclui trabalhos sobre ontologias, extração de entidades e NLP
-aplicados a perfis acadêmicos (Lattes, ORCID, DBLP), mesmo que não usem o termo
-"GraphRAG" especificamente. Essencial para mapear o estado da arte no domínio.
-
-### Critérios de inclusão
-
-- Artigos em periódicos, conferências ou pré-prints
-- Tema: aplicação de grafos do conhecimento e/ou LLM a dados
-  acadêmicos/curriculares
-- Texto completo acessível
-
-### Critérios de exclusão
-
-- Livros, editoriais, resumos expandidos
-- Aplicações puramente biomédicas ou industriais sem relação com o domínio
-  acadêmico
-- Apenas resumo disponível (sem texto completo)
-
-### Dados a extrair de cada artigo incluído
-
-Para cada estudo selecionado após triagem, extrair:
-
-| Campo | Descrição |
-| --- | --- |
-| **Referência** | Autores, ano, título, venue |
-| **Objetivo** | Objetivo e pergunta de pesquisa do estudo |
-| **Tipo de grafo** | Knowledge graph, ontologia, grafo de citações, etc. |
-| **LLM/NLP** | Modelo usado (GPT-4, BERT, etc.) e como foi aplicado |
-| **Domínio** | Lattes, ORCID, DBLP, Scopus, dados acadêmicos genéricos, etc. |
-| **Metodologia de avaliação** | Métricas, benchmarks, avaliação qualitativa, etc. |
-| **Resultados principais** | Achados mais relevantes |
-| **Limitações** | Limitações declaradas pelos autores |
-
-### Fluxo PRISMA esperado
-
-```
-Registros identificados nas bases (String A + String B)
-         │
-         ▼
-Remoção de duplicatas
-         │
-         ▼
-Triagem por título e abstract
-  ├── Excluídos (com motivo)
-         │
-         ▼
-Leitura do texto completo
-  ├── Excluídos com justificativa
-         │
-         ▼
-Estudos incluídos na síntese qualitativa
-```
-
-Os números (n = ?) serão preenchidos durante a execução da revisão.
+Não repetir a busca nem redefinir as strings — o protocolo já está fechado e
+os resultados já sustentam a monografia entregue.
 
 ---
 
-## Referências-chave do projeto
+## Estado atual do projeto (2026-09)
 
-Estas são as referências fundamentais que embasam as escolhas metodológicas:
+- [x] Revisão Sistemática de Literatura — concluída, 17 estudos incluídos
+- [x] Pipeline de extração XML → TXT — implementado
+- [x] GraphRAG configurado e **executado** sobre 1 currículo real
+- [x] Números do artefato preliminar auditados e corrigidos (ver
+      `HANDOFF-TCC2.md`, seção 2)
+- [x] Monografia parcial (TCC1) escrita, entregue, assinada pelo orientador,
+      comentários do professor da disciplina endereçados
+- [x] Apresentação de banca do TCC1 pronta e ensaiada
+- [x] `db.dump` (vários currículos) recebido, para a etapa de escalonamento
+- [ ] Corrigir normalização NFKC → NFC no pré-processamento
+- [ ] Restaurar `db.dump` e extrair conjunto reduzido de currículos coeso
+- [ ] Escalonar o pipeline para esse conjunto
+- [ ] Adicionar etapa de resolução de entidades (deduplicação)
+- [ ] Executar o plano de validação (5 frentes)
+- [ ] Redação final da monografia (TCC2) e defesa
 
-| Ref. | Uso no TCC |
-| --- | --- |
-| Peffers et al. (2007) — DSR Methodology for IS Research | Framework metodológico (DSR) |
-| Page et al. (2021) — PRISMA 2020 statement | Protocolo da revisão sistemática |
-| Edge et al. (2024) — From Local to Global: A Graph RAG Approach | Base técnica do GraphRAG |
-| Pan et al. (2024) — Unifying LLMs and Knowledge Graphs: A Roadmap | Referencial teórico sobre KG+LLM |
+Detalhamento de cada item pendente, com ordem sugerida e causa técnica de
+cada limitação: ver `HANDOFF-TCC2.md`.
 
 ---
 
-## Estado atual do projeto (atualizar conforme progresso)
+## Referências-chave
 
-- [x] Pipeline de extração XML → TXT implementado e documentado
-- [x] Configuração do GraphRAG (settings.yaml) definida
-- [x] Prompts do pipeline GraphRAG gerados
-- [x] Fundamentação acadêmica definida (objetivo, problema, DSR, PRISMA)
-- [x] Diagrama de arquitetura do pipeline criado (Excalidraw)
-- [ ] Execução da Revisão Sistemática (busca nas bases, triagem, síntese)
-- [ ] Execução do indexador GraphRAG com dados reais
-- [ ] Avaliação do grafo e das consultas
-- [ ] Escrita final do TCC
+Lista completa e definitiva em
+`tcc-monografia/elementos-pos-textuais/referencias.bib`. Núcleo metodológico:
+
+| Ref. | Uso |
+| --- | --- |
+| Peffers et al. (2007) | Framework metodológico (DSR) |
+| Dresch, Lacerda e Antunes Júnior (2015) | DSR — fundamentação complementar |
+| Page et al. (2021) | Protocolo PRISMA 2020 (RSL) |
+| Edge et al. (2024) | Base técnica do GraphRAG |
+| Pan et al. (2024) | Referencial teórico KG+LLM |
+| Furnas et al. (1987) | Problema do vocabulário |
+| Lewis et al. (2020) | RAG |
+
+Nunca inventar uma referência nova sem validar a fonte primeiro.
 
 ---
 
 ## Como usar este documento
 
-1. **Ao iniciar uma nova conversa com uma IA**, cole ou anexe este arquivo como
-   contexto inicial.
-2. **Para tarefas de código**, a IA deve respeitar a stack (Python 3.10+, Ruff,
-   type hints, docstrings NumPy em português) e a estrutura de pastas existente.
-3. **Para tarefas de pesquisa/revisão**, a IA deve seguir rigorosamente o
-   protocolo PRISMA descrito acima, incluindo as strings de busca, os critérios
-   de elegibilidade e a tabela de extração de dados.
-4. **Para tarefas de escrita acadêmica**, o tom deve ser formal, em português,
-   seguindo normas ABNT quando aplicável.
+1. Ao iniciar uma nova conversa com uma IA sobre este projeto, anexe este
+   arquivo **e** `HANDOFF-TCC2.md` como contexto inicial.
+2. Para tarefas de código: respeitar a stack (Python 3.10+) e a estrutura de
+   pastas existente; ver `HANDOFF-TCC2.md` para armadilhas já conhecidas
+   (venv com versão de Python incompatível entre máquinas, números que devem
+   sempre ser lidos dos `.parquet` e nunca de memória, a diferença entre a
+   modularidade recalculada e a partição real do GraphRAG).
+3. Para tarefas de escrita acadêmica: a monografia já está escrita — mudanças
+   de conteúdo acadêmico vão no repositório `tcc-monografia`, não aqui.
