@@ -28,6 +28,27 @@ embedding_models:
     dimensions: 1536
     retry:
       type: exponential_backoff
+      # O deployment GlobalStandard de embeddings responde 404 DeploymentNotFound
+      # em ~1 de cada 25 requisicoes paralelas (um servidor do pool global sem o
+      # deployment; testado em 18/09/2026). O graphrag_llm nao tenta de novo em
+      # NotFoundError e aborta o pipeline inteiro. Esta e a lista padrao de
+      # graphrag_llm/retry/exceptions_to_skip.py SEM o NotFoundError.
+      max_retries: 7
+      exceptions_to_skip:
+        - BadRequestError
+        - UnsupportedParamsError
+        - ContextWindowExceededError
+        - ContentPolicyViolationError
+        - ImageFetchError
+        - InvalidRequestError
+        - AuthenticationError
+        - PermissionDeniedError
+        - UnprocessableEntityError
+        - APIConnectionError
+        - APIError
+        - ServiceUnavailableError
+        - APIResponseValidationError
+        - BudgetExceededError
 
 ### Document processing settings ###
 
