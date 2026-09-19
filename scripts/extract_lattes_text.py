@@ -69,9 +69,12 @@ def normalizar_texto(texto: str) -> str:
         Texto limpo, com espacos padronizados.
     """
 
-    texto_nfkc = unicodedata.normalize("NFKC", texto)
+    # NFC, e nao NFKC: a decomposicao de compatibilidade do NFKC troca os
+    # indicadores ordinais por letras ("70ª" -> "70a", "Nº" -> "No") e parte
+    # tokens com acento solto ("SUCESU´2005" -> "SUCESU ́2005").
+    texto_normalizado = unicodedata.normalize("NFC", texto)
     texto_sem_controle = "".join(
-        char for char in texto_nfkc if unicodedata.category(char)[0] != "C"
+        char for char in texto_normalizado if unicodedata.category(char)[0] != "C"
     )
     texto_sem_espacos_repetidos = WHITESPACE_RE.sub(" ", texto_sem_controle).strip()
     return texto_sem_espacos_repetidos

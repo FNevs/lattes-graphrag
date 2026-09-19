@@ -45,7 +45,8 @@ artefatos, sem alucinação de fonte.
 ## 3. Arquivos-chave do repositório
 
 - `scripts/extract_lattes_text.py` — pré-processamento do XML (limpeza,
-  normalização). **A normalização NFKC está na função `normalizar_texto`, linha 72.**
+  normalização). A normalização fica na função `normalizar_texto`, linha 75: **NFC**
+  desde 19/09/2026 (era NFKC no TCC1).
 - `scripts/mapear_grafo.py` — gera estatísticas dos parquet (pandas). Não visualiza.
 - `scripts/figura_ego.py` — gera a ego-network (networkx + matplotlib), reprodutível
   com semente fixa. (Confirme que este arquivo veio junto — ele estava só na máquina
@@ -78,7 +79,9 @@ LLM" — só um dos casos é do modelo.
 
 1. **Pré-processamento (culpa nossa).** A normalização **NFKC** converte o indicador
    ordinal: "70ª" vira "70A". → **Trocar NFKC por NFC** em
-   `extract_lattes_text.py:72` e **reindexar**.
+   `extract_lattes_text.py:72` e **reindexar**. **Feito em 19/09/2026:** o grafo
+   reindexado recupera "70ª REUNIÃO ANUAL DA SBPC", "3º ONTOBRAS", "Nº 0001/2023" e o
+   "70A" corrompido some.
 2. **Fonte (culpa do dado).** O Lattes traz grafias divergentes ("Manuel"/"Manoel",
    "Semp Toshiba"/"SempToshiba"). A extração reproduz fielmente. → mitigável na etapa
    de resolução de entidades (item abaixo).
@@ -98,7 +101,8 @@ LLM" — só um dos casos é do modelo.
 
 ## 5. Tarefas do TCC2 (em ordem sugerida)
 
-1. **Corrigir e reindexar**: NFKC → NFC; conferir que "70ª" e afins sobrevivem.
+1. ~~**Corrigir e reindexar**: NFKC → NFC; conferir que "70ª" e afins sobrevivem.~~
+   Feito em 19/09/2026.
 2. **Escalar**: expandir de 1 para um conjunto reduzido de currículos Lattes.
 3. **Resolução de entidades**: unir variantes do mesmo nome antes/depois da extração.
 4. **Executar o plano de validação** (5 frentes, ver seção 6).

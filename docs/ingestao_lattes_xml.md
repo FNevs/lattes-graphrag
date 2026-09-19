@@ -61,18 +61,19 @@ O pipeline levanta exceções específicas para facilitar depuração:
 
 ---
 
-## Limitação conhecida (encontrada na auditoria do artefato preliminar)
+## Limitação corrigida (encontrada na auditoria do artefato preliminar)
 
-A normalização usada em `normalizar_texto` é **NFKC**, e isso apaga
-indicadores ordinais do português: "70ª Reunião" vira "70A Reunião" (o "ª"
-é convertido para "a" simples). Esse defeito se propaga para o grafo — a
-entidade final fica gravada como "70A REUNIÃO ANUAL DA SBPC".
+No TCC1, a normalização usada em `normalizar_texto` era **NFKC**, e isso
+apagava indicadores ordinais do português: "70ª Reunião" virava "70A Reunião"
+(o "ª" é convertido para "a" simples). O defeito se propagava para o grafo — a
+entidade final ficava gravada como "70A REUNIÃO ANUAL DA SBPC". A NFKC também
+partia tokens com acento solto digitado na fonte ("SUCESU´2005" virava
+"SUCESU ́2005"), gerando entidades duplicadas.
 
-**Correção pendente:** trocar `unicodedata.normalize("NFKC", texto)` por
-`unicodedata.normalize("NFC", texto)` nesta função, e reindexar. NFC preserva
-o "ª"/"º" e ainda resolve os casos de codificação que a NFKC existia para
-tratar. Ver `HANDOFF-TCC2.md`, seção 4, item 1, para o detalhamento completo
-e outras limitações descobertas na mesma auditoria (grafias divergentes na
+**Corrigido em 19/09/2026:** a função usa `unicodedata.normalize("NFC", texto)`.
+No currículo do TCC1, a NFC recupera os 11 ordinais (1 "ª", 10 "º") e os acentos
+soltos, e altera zero caracteres do XML. Ver `HANDOFF-TCC2.md`, seção 4, item 1,
+e as outras limitações descobertas na mesma auditoria (grafias divergentes na
 fonte, uma alucinação de extração, ausência de resolução de entidades).
 
 ---

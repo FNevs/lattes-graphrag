@@ -46,7 +46,7 @@ XML Lattes (CNPq)
     │
     ▼
 [scripts/extract_lattes_text.py]  ← extração + limpeza
-    │                                (normalização NFKC — ver "Limitação conhecida" abaixo)
+    │                                (normalização NFC desde 19/09/2026; era NFKC no TCC1)
     ▼
 TXT limpo (1 arquivo por currículo, em input/)
     │
@@ -182,7 +182,7 @@ os resultados já sustentam a monografia entregue.
       comentários do professor da disciplina endereçados
 - [x] Apresentação de banca do TCC1 pronta e ensaiada
 - [x] `db.dump` (vários currículos) recebido, para a etapa de escalonamento
-- [ ] Corrigir normalização NFKC → NFC no pré-processamento
+- [x] Corrigir normalização NFKC → NFC no pré-processamento (19/09/2026)
 - [ ] Restaurar `db.dump` e extrair conjunto reduzido de currículos coeso
 - [ ] Escalonar o pipeline para esse conjunto
 - [ ] Adicionar etapa de resolução de entidades (deduplicação)
