@@ -41,6 +41,9 @@ lattesNAPI/
 # Snapshots de cada versao do experimento (V0, V1, V2...): artefatos + dados pessoais
 runs/
 
+# Prompts gerados a partir do curriculo (exemplos contem trechos reais)
+prompts/lattes/
+
 # Arquivos do sistema operacional
 .DS_Store
 Thumbs.db
