@@ -7,6 +7,10 @@ documento tem o *estado atual, o que está quebrado e o que fazer*.
 Autor: Filipe Neves Silva (UNEB, Sistemas de Informação). Orientador: Eduardo
 Manuel de Freitas Jorge. Última atualização: 2026-07.
 
+> **Estado de execução (set/2026):** o andamento dos passos, custos, resultados e o
+> ponto exato de parada estão em `REGISTRO-EXECUCAO-TCC2.md`, nesta mesma pasta.
+> Leia-o antes das seções 2 e 5 abaixo, que descrevem o estado de jul/2026.
+
 ---
 
 ## 1. O que é o projeto
