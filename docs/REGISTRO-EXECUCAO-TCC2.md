@@ -17,16 +17,16 @@ Evidências brutas (scripts de diagnóstico, logs, simulações): `runs/_evidenc
 | 0 | congelar o artefato do TCC1 (V0) | ✅ | `runs/v0-tcc1/` | US$ 0,00 |
 | 1 | mesmo currículo e texto (NFKC), modelo novo | ✅ | `runs/v1-base-nfkc/` | US$ 1,83 |
 | 2 | correção NFKC → NFC e reindexação | ✅ | `runs/v1-nfc/` | US$ 1,60 |
-| 2b | prompts adaptados ao domínio Lattes | ⏳ **em andamento** | `prompts/lattes/` | US$ 0,05 até aqui |
+| 2b | prompts adaptados ao domínio Lattes (V1-tuned) | ✅ | `runs/v1-tuned/` | US$ 1,88 |
 | 3 | 8 XMLs do NPAI (V2) | pendente | — | ~US$ 11 (est.) |
 | 4 | validação cruzada com o banco SIMCC | pendente | — | US$ 0 |
 | 5 | 20–30 currículos do `db.dump` (V3) | pendente | — | ~US$ 15–20 (est.) |
 | — | consultas fixas para o site | pendente | — | ~US$ 9 (est.) |
 
-**Gasto acumulado: US$ 3,48 de US$ 100.** Projeção total com reserva: ~US$ 70–75.
+**Gasto acumulado: US$ 5,31 de US$ 100.** Projeção total com reserva: ~US$ 70–75.
 
-**Próxima ação:** passo 2b — curadoria e `settings.yaml` prontos; falta indexar (com OK
-do usuário) — ver seção 7.
+**Próxima ação:** decidir sobre o extrator (deduplicação global e uma produção por
+linha) antes do passo 3 — ver o fim da seção 7.
 
 ---
 
@@ -198,13 +198,14 @@ que não é pessoa, organização ou lugar.
 | passo 1 (01h–02h UTC de 19/09, inclui diagnóstico do bug) | 1.965.985 entrada + 638.366 saída → **US$ 1,83** | US$ 1,73 |
 | passo 2 (03h UTC de 19/09) | 1.701.431 entrada + 569.282 saída → **US$ 1,60** | US$ 1,54 (cache 9,6%) |
 | geração de prompts do 2b (2 execuções, 09h UTC) | 91.054 + 10.402 → **US$ 0,05** | — |
-| **total** | **US$ 3,48** | |
+| passo 2b, indexação V1-tuned (10:58–11:11 UTC) | 1.967.575 entrada + 644.412 saída + 420.822 embedding → **US$ 1,83** | US$ 1,81 (cache de chat 0%) |
+| **total** | **US$ 5,31** | |
 
 As 8 reexecuções de diagnóstico do passo 1 vieram 99,9% do cache e custaram centavos.
 
 ---
 
-## 7. Passo 2b — em andamento
+## 7. Passo 2b — concluído (V1-tuned)
 
 **Objetivo:** prompts de extração, resumo e relatório adaptados ao domínio Lattes, em
 português, com tipos de entidade fixos.
@@ -279,12 +280,43 @@ LLM ensinam relações especulativas:
    dos prompts padrão; aplicado aos arquivos atuais sem regerar (versões sem limite
    guardadas como evidência).
 
-**Falta no 2b:** `output/` e `logs/` já estão vazios (o V1-NFC foi movido para
-`runs/v1-nfc/`). Com OK do usuário: indexar em segundo plano, medir o custo pela Azure
-(~US$ 1,8), buscar os nomes sintéticos na saída (vazamento), comparar com
-`compara_versoes.py` (acrescentar a versão nova em `VERS`) e congelar em `runs/v1-tuned/`.
-Efeito esperado, para não ler errado: o dono do currículo deve ficar ligado a
-**pouquíssimas** produções próprias — ver o achado do extrator abaixo.
+**Resultado (V1-tuned, 19/09/2026, US$ 1,83 pelo medidor).** Congelado em
+`runs/v1-tuned/` (output, logs, input, settings, cópia de `prompts-lattes/`, MANIFEST).
+Comparação completa: `runs/_evidencias-sessao-2026-09/passo2b-curadoria/comparacao_v1nfc_v1tuned.txt`
+(`compara_2b.py`) e `inspecao_v1tuned.txt` (`inspeciona_2b.py`).
+
+| | V1-NFC | V1-tuned |
+|---|---|---|
+| entidades / relações | 1.501 / 1.906 | 1.583 / 1.389 |
+| comunidades | 275 | 226 |
+| nós / arestas do grafo | 1.389 / 1.824 | 1.300 / 1.357 |
+| entidades isoladas | 112 | 283 |
+| arestas PERSON–PERSON (coautoria inferida) | 187 | **0** |
+| relações com linguagem especulativa | 26 (1,4%) | 7 (0,5%) |
+| vazamento dos nomes sintéticos | — | **0** |
+| descrições em português | ~0% (inglês) | ~100% |
+| palavras por descrição (mediana) / relatório (mediana) | 22 / 572 | 25 / 630 |
+| grau do dono do currículo | 45 (23 EVENT, 18 ORG, 4 PERSON) | 42 (13 SOFTWARE, 8 PUBLICATION, 8 ORG, 5 PROJECT…) |
+
+Tipos no V1-tuned: PERSON 622, PUBLICATION 310, ORGANIZATION 176, COURSE 130, EVENT 113,
+SOFTWARE 86, PROJECT 66, KNOWLEDGE_AREA 48, GEO 24 — o balde `EVENT` (490, só ~17%
+eventos) se desfez. Relações dominantes: PERSON–PUBLICATION 555, PERSON–SOFTWARE 142,
+PERSON–PROJECT 111.
+
+Leitura: a curadoria fez o que se propunha — coautoria inventada zerou e a linguagem
+especulativa caiu a um terço (3 das 7 restantes são a mesma frase sobre a FAPESB). O
+grafo ficou **menos denso e mais fiel**: menos relações, mais isoladas. Das 283 isoladas,
+87 são PERSON — 62 delas descritas como autoras, isto é, autores cuja produção não
+estava no trecho (sem relação, como a instrução pede) — e 67 são `COURSE` (disciplinas
+de ensino que o texto não liga a nada).
+
+Defeitos novos ou que persistem (entrada para iterações futuras):
+- 8 entidades com tipo fora da lista: `TRABALHO TECNICO` 4, `PROCESSO OU TÉCNICA` 2,
+  `PATENT` 1, `ORG` 1 — o modelo usa a seção do Lattes como tipo.
+- Cargos virando `PERSON`: `PROFESSOR`, `COORDENADOR DE PROJETOS DE P&D`,
+  `PESQUISADOR DA AGÊNCIA UNEB DE INOVAÇÃO` (enquadramento funcional).
+- Variantes: `EDUARDO MANOEL` 2→3, `SABA` 8→10, e títulos quase iguais (`...COM FUNÇÃO
+  DÉBITO...` / `...COM FUNÇÃO DE DÉBITO...`) — resolução de entidades segue pendente.
 
 **Achado (19/09/2026): o extrator descarta 62% do XML.** `extract_lattes_text.py:146`
 faz `dict.fromkeys(linhas)`, que remove linhas repetidas **no arquivo inteiro**, não só
