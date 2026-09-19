@@ -25,7 +25,8 @@ Evidências brutas (scripts de diagnóstico, logs, simulações): `runs/_evidenc
 
 **Gasto acumulado: US$ 3,48 de US$ 100.** Projeção total com reserva: ~US$ 70–75.
 
-**Próxima ação:** passo 2b, opção B (curadoria dos exemplos) — ver seção 7.
+**Próxima ação:** passo 2b — curadoria e `settings.yaml` prontos; falta indexar (com OK
+do usuário) — ver seção 7.
 
 ---
 
@@ -239,27 +240,68 @@ LLM ensinam relações especulativas:
 
 **Decisão (19/09/2026): opção B — curadoria dos exemplos.**
 
-**Próximos passos do 2b:**
+**Curadoria feita e aprovada pelo usuário (19/09/2026), custo US$ 0,00** (tudo local):
 
-1. Escrever 2 exemplos curados para `prompts/lattes/extract_graph.txt`: um de
-   publicação com autores, outro de projeto com integrantes e produções. As saídas
-   afirmam só o que o texto diz (autor ↔ a própria produção; projeto → produção;
-   pessoa → projeto como integrante).
-2. Acrescentar em "-Steps-" uma instrução como: *"Extraia apenas relações declaradas
-   explicitamente no texto; não deduza autoria, participação ou colaboração."*
-3. **Decisão em aberto:** trecho **real** do currículo (mais fiel, mas o arquivo passa a
-   conter dado pessoal e não pode ir ao Git — hoje `prompts/lattes/` está ignorado) ou
-   trecho **sintético** no formato exato do Lattes (pode ser versionado; os exemplos
-   padrão do GraphRAG também são fictícios). Recomendação: sintético fiel ao formato.
-4. O usuário revisa os exemplos **antes** de indexar.
-5. `settings.yaml`: `extract_graph.prompt`, `summarize_descriptions.prompt` e
-   `community_reports.graph_prompt` apontando para `prompts/lattes/`; `entity_types`
-   com os 9 tipos. Atenção: com idioma português, descrições e relatórios passam a sair
-   em português (V1 saía em inglês) — mudança visível, registrar.
-6. `output/` e `logs/` já estão vazios (o V1-NFC foi movido para `runs/v1-nfc/`).
-   Indexar em segundo plano, medir o custo pela Azure (~US$ 1,8), comparar com
-   `compara_versoes.py` (acrescentar a versão nova em `VERS`) e congelar em
-   `runs/v1-tuned/`.
+1. ✅ **Trecho sintético**, não real. Rótulos, ordem dos campos e valores categóricos
+   copiados do currículo; só nomes e títulos inventados. Motivos: (a) vazamento de
+   exemplo para a saída fica **detectável** — com trecho real do corpus, uma entidade
+   copiada do exemplo é indistinguível de uma extraída; (b) sem dado pessoal, o prompt
+   pode ir para um apêndice. Os 7 nomes, 7 citações, o periódico e os títulos foram
+   buscados no currículo, nos 8 XMLs do NPAI e no `db.dump` inteiro (3,6 mi linhas via
+   `pg_restore`): **zero ocorrências** (a citação `MAGALHÃES, C. F.` existia e foi trocada).
+   Nomes para a checagem de vazamento pós-indexação: `RODRIGO TAVARES QUINTELA`,
+   `HELENA BRAGA DE ALCÂNTARA`, `MARCELO DANTAS ARAGÃO`, `SIMONE PRATES CALDEIRA`,
+   `BEATRIZ SAMPAIO LEMOS`, `CAIO FERRAZ VALADARES`, `DENISE ARAÚJO PORTUGAL`,
+   `REVISTA NORDESTINA DE ENGENHARIA DE DADOS`.
+2. ✅ Exemplo 1 (publicação): começa no fim da lista de autores de uma produção fora do
+   trecho (pessoas extraídas **sem** relação), artigo completo com autores (autor →
+   artigo; artigo → periódico; **sem** arestas de coautoria) e termina num cabeçalho sem
+   título (nada extraído). Exemplo 2 (projeto): integrantes → projeto (responsável com
+   força 9), projeto → produções (artigo e TCC); **nenhuma** pessoa → produção.
+3. ✅ Instrução acrescentada no passo 2 de "-Steps-" (em inglês, como o resto do prompt):
+   só relações explícitas; autores pertencem à produção **acima** da lista; autores no
+   início do trecho ficam sem relação; coautoria só via a produção; integrantes ligam-se
+   ao projeto, não às produções do projeto.
+4. Convenções: descrições neutras ("Pessoa listada como autora" — o texto não informa
+   gênero); periódico como `ORGANIZATION` (convenção do V1: 34/34 periódicos); forças 9
+   (autoria, periódico, responsável) e 8 (integrante, produção do projeto); nenhum
+   exemplo para `knowledge_area`, `course`, `event`, `geo`.
+5. Tamanho: 2.671 tokens (o200k_base), contra 3.606 do prompt gerado pelo LLM e 1.726 do
+   padrão. Versão gerada guardada em `runs/_evidencias-sessao-2026-09/passo2b-curadoria/`.
+6. ✅ `settings.yaml`: os três prompts apontam para `prompts/lattes/`; `entity_types`
+   com os 9 tipos. Validado offline com `load_config` + `format` como o extrator faz.
+   Atenção: descrições e relatórios passam a sair em português (V1 saía em inglês).
+7. ✅ **Limites de tamanho reinseridos.** Os templates do prompt-tune da 3.1.0 não têm
+   `{max_length}` (resumo) nem `{max_report_length}` (relatório); sem eles os
+   `max_length: 500` e `2000` do `settings.yaml` ficariam sem efeito — descrições e
+   relatórios sem limite, mais caros e uma segunda variável no passo.
+   `restaurar_limites` em `scripts/ajustar_prompts.py` os devolve nas mesmas posições
+   dos prompts padrão; aplicado aos arquivos atuais sem regerar (versões sem limite
+   guardadas como evidência).
+
+**Falta no 2b:** `output/` e `logs/` já estão vazios (o V1-NFC foi movido para
+`runs/v1-nfc/`). Com OK do usuário: indexar em segundo plano, medir o custo pela Azure
+(~US$ 1,8), buscar os nomes sintéticos na saída (vazamento), comparar com
+`compara_versoes.py` (acrescentar a versão nova em `VERS`) e congelar em `runs/v1-tuned/`.
+Efeito esperado, para não ler errado: o dono do currículo deve ficar ligado a
+**pouquíssimas** produções próprias — ver o achado do extrator abaixo.
+
+**Achado (19/09/2026): o extrator descarta 62% do XML.** `extract_lattes_text.py:146`
+faz `dict.fromkeys(linhas)`, que remove linhas repetidas **no arquivo inteiro**, não só
+as vizinhas. No currículo do V1 (medido com `medir_dedup_extrator.py`):
+
+| | no XML | no texto |
+|---|---|---|
+| linhas | 13.256 | 4.972 |
+| `AUTORES \| nome completo` | 1.083 | 400 |
+| `INTEGRANTES DO PROJETO \| nome completo` | 148 | 79 |
+| `ano do artigo` | 52 | 14 |
+| autoria do dono do currículo | 258 | **1** |
+
+Cada coautor aparece só na primeira produção em que figura; anos, naturezas e idiomas
+repetidos somem das produções seguintes. Corrigir é outra variável (muda o input) e
+**mexe no orçamento**: o texto completo tem ~2,7× mais linhas, o que encarece cada
+indexação e as estimativas do V2/V3. Decidir depois do 2b, junto com a observação abaixo.
 
 **Observação para uma iteração futura:** o problema de fundo é estrutural. O extrator
 escreve o título de uma produção antes da lista de autores, e os chunks de 1.200 tokens
@@ -275,6 +317,8 @@ cada produção em uma linha só (título, ano, tipo e autores juntos).
 | Deployment GlobalStandard de embeddings: 404 em ~1/25 requisições paralelas; GraphRAG não faz retry em 404 | `runs/_evidencias-sessao-2026-09/azure-404-embeddings/` |
 | Bug do prompt tuning 3.1.0: exemplos pareados com o texto errado | `.../prompt-tune-bug/` |
 | Template de resumo do prompt-tune pede "enriquecer" com texto inexistente | `graphrag/prompt_tune/template/entity_summarization.py:14` |
+| Templates do prompt-tune omitem `{max_length}`/`{max_report_length}` → limites do settings sem efeito | `.../passo2b-curadoria/*.sem-limite.txt` |
+| Extrator remove linhas repetidas no arquivo inteiro: 62% do XML descartado; dono do currículo autor 258× no XML, 1× no texto | `.../passo2b-curadoria/medir_dedup_extrator.py` |
 | Log do GraphRAG subconta ~5% o uso real | seção 6 |
 | Cache repõe métricas → custo logado de rerun é fictício (explica o "US$ 0,50" do run 2 de fev/2026) | `graphrag_llm/middleware/with_cache.py:86` |
 | `--dry-run` imprime traceback de logging na 3.1.0 (só cosmético; exit 0) | corrigido na 3.1.1 ("Fix logging bug") |
