@@ -6,13 +6,15 @@ a linha de comando so oferece tipos inventados pelo LLM
 e reproduzivel nem controlavel, entao este script chama os mesmos geradores
 internos do GraphRAG passando uma lista de tipos definida aqui.
 
-Dois desvios deliberados em relacao ao prompt-tune da 3.1.0, ambos registrados
+Tres desvios deliberados em relacao ao prompt-tune da 3.1.0, todos registrados
 em ``procedencia.json``:
 
 1. os exemplos de extracao sao gerados por ``gerar_exemplos`` (o gerador
    original tem um bug que pareia cada exemplo com o texto errado);
 2. o prompt de resumo perde a frase ``FRASE_ENRIQUECER``, que pede para
-   enriquecer a descricao com um texto que o modelo nao recebe.
+   enriquecer a descricao com um texto que o modelo nao recebe;
+3. ``restaurar_limites`` devolve aos prompts de resumo e de relatorio o limite
+   de tamanho que os templates do prompt-tune omitem.
 """
 
 from __future__ import annotations
@@ -82,6 +84,15 @@ FRASE_ENRIQUECER = (
     "Enrich it as much as you can with relevant information from the nearby text, "
     "this is very important."
 )
+
+# Os templates do prompt-tune da 3.1.0 nao tem o limite de tamanho que os prompts
+# padrao tem; sem ele, summarize_descriptions.max_length e
+# community_reports.max_length do settings.yaml deixam de ter efeito.
+LIMITE_RESUMO = "Limit the final description length to {max_length} words.\n"
+LIMITE_RELATORIO = "Limit the total report length to {max_report_length} words.\n"
+ANCORA_RESUMO = "include the entity names so we have the full context.\n"
+ANCORA_RELATORIO = "Do not include information where the supporting evidence for it is not provided.\n"
+FIM_RELATORIO = "{input_text}\nOutput:"
 
 DOMINIO_PADRAO = (
     "curriculos academicos da Plataforma Lattes (CNPq) de pesquisadores "
@@ -155,6 +166,46 @@ async def gerar_exemplos(
         tarefas.append(llm.completion_async(messages=mensagens, response_format_json_object=False))
     respostas = await asyncio.gather(*tarefas)
     return [r.content for r in respostas]
+
+
+def restaurar_limites(prompt_resumo: str, prompt_relatorio: str) -> tuple[str, str]:
+    """Reinsere nos prompts gerados os limites de tamanho dos prompts padrao.
+
+    Parameters
+    ----------
+    prompt_resumo : str
+        Prompt de resumo de descricoes gerado pelo prompt-tune.
+    prompt_relatorio : str
+        Prompt de relatorio de comunidade gerado pelo prompt-tune.
+
+    Returns
+    -------
+    tuple[str, str]
+        Os dois prompts com os marcadores ``{max_length}`` e
+        ``{max_report_length}``, nas mesmas posicoes dos prompts padrao.
+
+    Raises
+    ------
+    ValueError
+        Quando um template mudou e as ancoras nao foram encontradas.
+    """
+
+    if "{max_length}" not in prompt_resumo:
+        if prompt_resumo.count(ANCORA_RESUMO) != 1:
+            raise ValueError("Template de resumo mudou; revise ANCORA_RESUMO.")
+        prompt_resumo = prompt_resumo.replace(ANCORA_RESUMO, ANCORA_RESUMO + LIMITE_RESUMO)
+    if "{max_report_length}" not in prompt_relatorio:
+        if prompt_relatorio.count(ANCORA_RELATORIO) != 1 or not prompt_relatorio.endswith(
+            FIM_RELATORIO
+        ):
+            raise ValueError("Template de relatorio mudou; revise ANCORA_RELATORIO.")
+        prompt_relatorio = prompt_relatorio.replace(
+            ANCORA_RELATORIO, ANCORA_RELATORIO + "\n" + LIMITE_RELATORIO
+        )
+        prompt_relatorio = prompt_relatorio.removesuffix(FIM_RELATORIO) + (
+            "{input_text}\n\n" + LIMITE_RELATORIO + "\nOutput:"
+        )
+    return prompt_resumo, prompt_relatorio
 
 
 async def gerar_prompts(
@@ -235,6 +286,7 @@ async def gerar_prompts(
         report_rating_description=avaliacao,
         language=idioma,
     )
+    prompt_resumo, prompt_relatorio = restaurar_limites(prompt_resumo, prompt_relatorio)
 
     prompts = {
         EXTRACT_GRAPH_FILENAME: prompt_extracao,
@@ -258,6 +310,7 @@ async def gerar_prompts(
         "desvios_do_prompt_tune": [
             "exemplos gerados com uma conversa por chunk (bug do builder compartilhado na 3.1.0)",
             "removida do prompt de resumo a frase: " + FRASE_ENRIQUECER,
+            "reinseridos os limites {max_length} e {max_report_length} dos prompts padrao",
         ],
     }
     return prompts, procedencia

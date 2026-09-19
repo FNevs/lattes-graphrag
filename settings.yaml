@@ -95,13 +95,13 @@ embed_text:
 
 extract_graph:
   completion_model_id: default_completion_model
-  prompt: "prompts/extract_graph.txt"
-  entity_types: [organization,person,geo,event]
+  prompt: "prompts/lattes/extract_graph.txt"
+  entity_types: [person,organization,geo,event,publication,software,project,knowledge_area,course]
   max_gleanings: 1
 
 summarize_descriptions:
   completion_model_id: default_completion_model
-  prompt: "prompts/summarize_descriptions.txt"
+  prompt: "prompts/lattes/summarize_descriptions.txt"
   max_length: 500
 
 extract_graph_nlp:
@@ -120,7 +120,7 @@ extract_claims:
 
 community_reports:
   completion_model_id: default_completion_model
-  graph_prompt: "prompts/community_report_graph.txt"
+  graph_prompt: "prompts/lattes/community_report_graph.txt"
   text_prompt: "prompts/community_report_text.txt"
   max_length: 2000
   max_input_length: 8000
