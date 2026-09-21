@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grafo de Currículos Lattes — GraphRAG</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body data-tema="escuro">
+
+<header class="barra">
+  <button class="icone apenas-estreito" id="btn-menu" title="Filtros" aria-label="Abrir filtros">☰</button>
+
+  <div class="marca">
+    <span class="marca-icone" aria-hidden="true">◍</span>
+    <div>
+      <h1>Grafo de Currículos Lattes</h1>
+      <p id="versao-descricao">carregando…</p>
+    </div>
+  </div>
+
+  <div class="metricas" id="metricas"></div>
+
+  <div class="controles">
+    <label class="campo">
+      <span>Versão</span>
+      <select id="sel-versao"></select>
+    </label>
+    <label class="campo" id="campo-cor">
+      <span>Cor</span>
+      <select id="sel-cor">
+        <option value="pesquisador">Pesquisador</option>
+        <option value="tipo">Tipo</option>
+        <option value="comunidade">Comunidade</option>
+      </select>
+    </label>
+    <label class="alternar" title="Recalcula o layout continuamente">
+      <input type="checkbox" id="chk-animar"> <span>Animar</span>
+    </label>
+    <div class="botoes">
+      <button class="icone" id="btn-menos" title="Afastar" aria-label="Afastar">−</button>
+      <button class="icone" id="btn-mais" title="Aproximar" aria-label="Aproximar">+</button>
+      <button class="icone" id="btn-ajustar" title="Enquadrar" aria-label="Enquadrar">⤢</button>
+      <button class="icone" id="btn-png" title="Baixar imagem" aria-label="Baixar imagem">⤓</button>
+      <button class="icone" id="btn-tema" title="Tema claro/escuro" aria-label="Alternar tema">◐</button>
+    </div>
+    <button class="icone apenas-estreito" id="btn-painel" title="Detalhes" aria-label="Abrir detalhes">ℹ</button>
+  </div>
+</header>
+
+<main class="corpo">
+  <aside class="lateral" id="lateral">
+    <div class="busca">
+      <input type="search" id="busca" placeholder="Buscar pessoa, produção, projeto…" autocomplete="off">
+      <ul id="sugestoes" class="sugestoes" hidden></ul>
+    </div>
+
+    <section class="grupo">
+      <h2>Pesquisadores <small id="conta-pesquisadores"></small></h2>
+      <ul id="lista-pesquisadores" class="lista"></ul>
+    </section>
+
+    <section class="grupo">
+      <h2>Tipos de entidade</h2>
+      <ul id="lista-tipos" class="lista"></ul>
+    </section>
+
+    <section class="grupo">
+      <h2>Exibição</h2>
+      <div id="extras-lateral"></div>
+      <label class="deslizante">
+        <span>Mínimo de conexões: <strong id="valor-grau">0</strong></span>
+        <input type="range" id="grau-min" min="0" max="20" value="0">
+      </label>
+      <label class="deslizante">
+        <span>Máximo de nós: <strong id="valor-limite">1200</strong></span>
+        <input type="range" id="limite" min="200" max="4000" step="200" value="1200">
+      </label>
+      <label class="alternar"><input type="checkbox" id="chk-isoladas"> <span>Incluir isoladas</span></label>
+      <button class="botao-largo" id="btn-limpar">Limpar filtros</button>
+    </section>
+
+    <p class="aviso">Dados de currículos reais: uso local, não publicar (LGPD).</p>
+  </aside>
+
+  <section class="palco">
+    <div id="grafo"></div>
+    <div class="rodape-palco">
+      <span id="contador">—</span>
+      <span id="estado-layout"></span>
+    </div>
+    <div class="legenda" id="legenda"></div>
+    <div class="carregando" id="carregando"><span class="giro"></span> carregando…</div>
+  </section>
+
+  <aside class="painel" id="painel">
+    <nav class="abas">
+      <button class="aba ativa" data-aba="detalhes">Detalhes</button>
+      <button class="aba" data-aba="comunidades">Comunidades</button>
+      <button class="aba" data-aba="consultas">Consultas</button>
+      <button class="icone apenas-estreito" id="btn-fechar-painel" aria-label="Fechar">×</button>
+    </nav>
+    <div class="aba-conteudo ativa" id="aba-detalhes">
+      <p class="vazio">Clique em um nó ou em uma aresta para ver os detalhes.</p>
+    </div>
+    <div class="aba-conteudo" id="aba-comunidades"></div>
+    <div class="aba-conteudo" id="aba-consultas"></div>
+  </aside>
+</main>
+
+<script src="vendor/graphology.umd.min.js"></script>
+<script src="vendor/graphology-library.min.js"></script>
+<script src="vendor/sigma.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

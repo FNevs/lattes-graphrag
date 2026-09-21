@@ -47,3 +47,6 @@ prompts/lattes/
 # Arquivos do sistema operacional
 .DS_Store
 Thumbs.db
+
+# Dados do site: gerados por scripts/exportar_site.py a partir de runs/ (dado pessoal).
+site/dados/
