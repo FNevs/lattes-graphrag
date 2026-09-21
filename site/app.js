@@ -22,7 +22,8 @@ const estado = {
   filtros: { pesquisadores: new Set(), tipos: new Set(), grauMin: 0, limite: 1200, isoladas: false, busca: "" },
   selecao: null,
   animando: false,
-  quadro: null,
+  layout: null,
+  pausa: null,
 };
 
 const $ = (s) => document.querySelector(s);
@@ -190,7 +191,7 @@ function corDoNo(n) {
 function atualizarGrafo() {
   if (!estado.dados) return;
   mostrarCarregando(true, "montando grafo…");
-  pararAnimacao();
+  pararLayout();
 
   // setTimeout (e nao requestAnimationFrame): da tempo de pintar o "carregando" e
   // continua funcionando com a janela oculta, quando o rAF nao dispara.
@@ -219,8 +220,9 @@ function atualizarGrafo() {
     });
 
     estado.grafo = g;
-    posicionar(g);
+    arranjoInicial(g);
     renderizar(g);
+    iniciarLayout(g);
     $("#contador").textContent =
       `${numero(g.order)} de ${numero(estado.dados.nos.length)} nós · ${numero(arestas)} de ${numero(estado.dados.arestas.length)} relações`;
     desenharLegenda();
@@ -228,13 +230,12 @@ function atualizarGrafo() {
   }, 16);
 }
 
-/** Layout inicial: círculo por grupo + ForceAtlas2 em iterações proporcionais ao tamanho. */
-function posicionar(g) {
+/** Arranjo inicial barato: um anel por cor, so para ter algo na tela na hora. */
+function arranjoInicial(g) {
   const grupos = new Map();
   g.forEachNode((no, attr) => {
-    const chave = attr.color;
-    if (!grupos.has(chave)) grupos.set(chave, []);
-    grupos.get(chave).push(no);
+    if (!grupos.has(attr.color)) grupos.set(attr.color, []);
+    grupos.get(attr.color).push(no);
   });
   const total = grupos.size || 1;
   let k = 0;
@@ -249,18 +250,43 @@ function posicionar(g) {
     });
     k += 1;
   });
+}
 
-  const iteracoes = g.order > 2500 ? 60 : g.order > 1200 ? 120 : 220;
+/** ForceAtlas2 em worker: a pagina continua respondendo enquanto o grafo se organiza. */
+function iniciarLayout(g) {
+  pararLayout();
   const fa2 = graphologyLibrary.layoutForceAtlas2;
-  fa2.assign(g, { iterations: iteracoes, settings: { ...fa2.inferSettings(g), barnesHutOptimize: g.order > 800, gravity: 1.2, scalingRatio: 12, slowDown: 3 } });
-
-  // separa os nos que ficaram sobrepostos, para os rotulos serem legiveis
-  if (g.order <= 2500 && graphologyLibrary.layoutNoverlap) {
-    graphologyLibrary.layoutNoverlap.assign(g, {
-      maxIterations: 40,
-      settings: { margin: 2, ratio: 1.2, gridSize: 20 },
-    });
+  const settings = {
+    ...fa2.inferSettings(g),
+    barnesHutOptimize: g.order > 500,
+    gravity: 1.2,
+    scalingRatio: 12,
+    slowDown: 3,
+  };
+  estado.layout = new graphologyLibrary.FA2Layout(g, { settings });
+  estado.layout.start();
+  $("#estado-layout").textContent = "organizando…";
+  if (!estado.animando) {
+    const duracao = g.order > 2000 ? 5000 : g.order > 900 ? 3500 : 2500;
+    estado.pausa = setTimeout(() => pararLayout(true), duracao);
   }
+}
+
+/** Para o worker; com `separar`, afasta os nos sobrepostos para os rotulos ficarem legiveis. */
+function pararLayout(separar) {
+  clearTimeout(estado.pausa);
+  estado.pausa = null;
+  if (estado.layout) {
+    estado.layout.kill();
+    estado.layout = null;
+  }
+  const g = estado.grafo;
+  // o noverlap e sincrono: acima de ~1500 nos ele trava a interface por meio segundo,
+  // e nessa escala os rotulos ja nao aparecem, entao nao compensa.
+  if (separar && g && g.order <= 1500 && graphologyLibrary.layoutNoverlap) {
+    graphologyLibrary.layoutNoverlap.assign(g, { maxIterations: 30, settings: { margin: 2, ratio: 1.2, gridSize: 20 } });
+  }
+  $("#estado-layout").textContent = "";
 }
 
 function renderizar(g) {
@@ -276,6 +302,9 @@ function renderizar(g) {
     hideEdgesOnMove: g.order > 900,
     enableEdgeEvents: true,
     zIndex: true,
+    // sem isso o sigma lanca erro quando o contêiner ainda nao tem largura
+    // (aba em segundo plano, painel fechado, janela minimizada)
+    allowInvalidContainer: true,
   });
 
   estado.sigma.on("clickNode", ({ node }) => selecionarNo(Number(g.getNodeAttribute(node, "indice"))));
@@ -539,32 +568,14 @@ function mostrarCarregando(ativo, texto) {
   if (texto) el.lastChild.textContent = ` ${texto}`;
 }
 
-function pararAnimacao() {
-  estado.animando = false;
-  if (estado.quadro) cancelAnimationFrame(estado.quadro);
-  estado.quadro = null;
-  $("#estado-layout").textContent = "";
-}
-
-function animar() {
-  const fa2 = graphologyLibrary.layoutForceAtlas2;
-  const config = { ...fa2.inferSettings(estado.grafo), barnesHutOptimize: estado.grafo.order > 800, gravity: 1.2, scalingRatio: 12, slowDown: 3 };
-  const passo = () => {
-    if (!estado.animando) return;
-    fa2.assign(estado.grafo, { iterations: 2, settings: config });
-    estado.quadro = requestAnimationFrame(passo);
-  };
-  $("#estado-layout").textContent = "layout em movimento";
-  estado.quadro = requestAnimationFrame(passo);
-}
-
 function ligarEventos() {
   $("#sel-versao").addEventListener("change", (e) => carregarVersao(e.target.value));
   $("#sel-cor").addEventListener("change", atualizarGrafo);
 
   $("#chk-animar").addEventListener("change", (e) => {
     estado.animando = e.target.checked;
-    if (estado.animando) animar(); else pararAnimacao();
+    if (estado.animando) iniciarLayout(estado.grafo);
+    else pararLayout(true);
   });
 
   $("#grau-min").addEventListener("input", (e) => {
