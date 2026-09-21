@@ -18,15 +18,23 @@ Evidências brutas (scripts de diagnóstico, logs, simulações): `runs/_evidenc
 | 1 | mesmo currículo e texto (NFKC), modelo novo | ✅ | `runs/v1-base-nfkc/` | US$ 1,83 |
 | 2 | correção NFKC → NFC e reindexação | ✅ | `runs/v1-nfc/` | US$ 1,60 |
 | 2b | prompts adaptados ao domínio Lattes (V1-tuned) | ✅ | `runs/v1-tuned/` | US$ 1,88 |
-| 3 | 8 XMLs do NPAI (V2) | pendente | — | ~US$ 11 (est.) |
-| 4 | validação cruzada com o banco SIMCC | pendente | — | US$ 0 |
-| 5 | 20–30 currículos do `db.dump` (V3) | pendente | — | ~US$ 15–20 (est.) |
+| 2c | extrator: um registro por linha (V1-formatoE, diagnóstico) | ✅ | `runs/v1-formatoE/` | US$ 1,71 (com piloto) |
+| 3 | 8 XMLs do NPAI (V2) | ✅ | `runs/v2-npai/` | US$ 17,76 |
+| 4 | validação cruzada com o banco SIMCC | **BLOQUEADO** (20/09) | — | — |
+| 5 | 20–30 currículos do `db.dump` (V3) | **BLOQUEADO** (20/09) | — | — |
 | — | consultas fixas para o site | pendente | — | ~US$ 9 (est.) |
+| — | consultas avulsas de demonstração (19/09) | ✅ | `runs/*/consultas/` | US$ 0,02 |
 
-**Gasto acumulado: US$ 5,31 de US$ 100.** Projeção total com reserva: ~US$ 70–75.
+**Decisão de 20/09/2026:** tudo que envolve o `db.dump` fica **BLOQUEADO** — não é
+próximo passo nem trabalho futuro; o usuário decidirá depois o que fazer com ele, ou
+descartá-lo. O trabalho segue com os **8 currículos do `lattesNAPI/`**, até a página de
+visualização.
 
-**Próxima ação:** decidir sobre o extrator (deduplicação global e uma produção por
-linha) antes do passo 3 — ver o fim da seção 7.
+**Gasto acumulado: US$ 24,79 de US$ 100.** Falta o custo das consultas fixas do site
+(~US$ 9 estimados), o que fecharia em ~US$ 34.
+
+**Próxima ação:** consultas fixas sobre o V2 e a página de visualização (seções 9 e 14);
+resolução de entidades é a pendência técnica mais relevante (ver seção 16).
 
 ---
 
@@ -44,7 +52,7 @@ US$ 100 de crédito, válido até **18/09/2027**, sem cartão.
 | Cota de `gpt-4o-mini` nessas regiões | **zero em todas** → impossível manter o modelo do TCC1 |
 | Resource group / recurso | `rg-lattes-graphrag` / `lattes-graphrag-tcc` (spaincentral) |
 | Endpoint | `https://lattes-graphrag-tcc.openai.azure.com` |
-| Chat | `gpt-4.1-mini` v2025-04-14, GlobalStandard, 200K TPM (aposenta em 14/04/2027) |
+| Chat | `gpt-4.1-mini` v2025-04-14, GlobalStandard, 1.000 unidades = 1M TPM e 1.000 RPM desde 21/09/2026 (antes 200K TPM; cota da assinatura: 5.000); aposenta em 14/04/2027 |
 | Embeddings | `text-embedding-3-small` v1, GlobalStandard, 1000K TPM (igual ao TCC1) |
 | Orçamento | `alerta-tcc`: US$ 10/mês, alertas em 50% e 90% para o Owner |
 | Chave | `.env` → `GRAPHRAG_API_KEY` (ASCII, sem BOM) |
@@ -199,7 +207,13 @@ que não é pessoa, organização ou lugar.
 | passo 2 (03h UTC de 19/09) | 1.701.431 entrada + 569.282 saída → **US$ 1,60** | US$ 1,54 (cache 9,6%) |
 | geração de prompts do 2b (2 execuções, 09h UTC) | 91.054 + 10.402 → **US$ 0,05** | — |
 | passo 2b, indexação V1-tuned (10:58–11:11 UTC) | 1.967.575 entrada + 644.412 saída + 420.822 embedding → **US$ 1,83** | US$ 1,81 (cache de chat 0%) |
-| **total** | **US$ 5,31** | |
+| consultas de demonstração (11h UTC de 19/09; 4 buscas local/basic) | 40.013 entrada + 2.546 saída → **US$ 0,02** | 0 (o log não registra tokens em consulta) |
+| piloto de extração do 2c (2 execuções, 00h UTC de 21/09) | 49.814 entrada + 34.616 saída → **US$ 0,08** | — |
+| passo 2c, V1-formatoE diagnóstico (00:09–00:23 UTC de 21/09) | 1.704.061 entrada + 590.320 saída → **US$ 1,63** | — |
+| passo 3 tentativa 1, abortada por RateLimit (01h–02h UTC de 21/09) | 8.905.419 entrada + 3.448.018 saída → **US$ 9,08** | — |
+| passo 3 etapa 1, grafo do V2 (18:50–19:12 UTC) | 2.689.061 entrada + 706.274 saída → **US$ 2,21** | — |
+| passo 3 etapa 2, relatórios + embeddings (19:13–19:43 UTC) | 6.512.505 entrada + 2.365.769 saída + 4.073.273 embedding → **US$ 6,47** | — |
+| **total** | **US$ 24,79** | |
 
 As 8 reexecuções de diagnóstico do passo 1 vieram 99,9% do cache e custaram centavos.
 
@@ -331,14 +345,41 @@ as vizinhas. No currículo do V1 (medido com `medir_dedup_extrator.py`):
 | autoria do dono do currículo | 258 | **1** |
 
 Cada coautor aparece só na primeira produção em que figura; anos, naturezas e idiomas
-repetidos somem das produções seguintes. Corrigir é outra variável (muda o input) e
-**mexe no orçamento**: o texto completo tem ~2,7× mais linhas, o que encarece cada
-indexação e as estimativas do V2/V3. Decidir depois do 2b, junto com a observação abaixo.
+repetidos somem das produções seguintes.
 
-**Observação para uma iteração futura:** o problema de fundo é estrutural. O extrator
-escreve o título de uma produção antes da lista de autores, e os chunks de 1.200 tokens
-às vezes começam no meio dessa lista. Solução real: o `extract_lattes_text.py` emitir
-cada produção em uma linha só (título, ano, tipo e autores juntos).
+**Formatos simulados (sem LLM, `simula_formatos.py`; tokens o200k_base, chunks de
+1.200 com overlap 100).** A estimativa anterior ("corrigir custa ~2,7×") valia só para
+remover a deduplicação mantendo uma linha por atributo — 67% dos tokens desse formato são
+rótulos repetidos (`DADOS BASICOS DO ARTIGO | titulo do artigo:`).
+
+| formato | currículo V1 (chunks) | 8 do NPAI (chunks) | perde dados? |
+|---|---|---|---|
+| A — atual (dedup global) | 105 | 708 | sim, 62% das linhas |
+| B — sem dedup, 1 linha por atributo | 248 | 1.766 | não |
+| C — sem dedup, 1 linha por elemento XML | 165 | 1.185 | não |
+| D — C sem códigos, flags, sequências e ids | 129 | 943 | não* |
+| **E — uma produção/projeto por linha** (campos + autores/integrantes juntos) | **98** | **744** | não* |
+
+\* descarta só códigos, flags, sequências, ids, DOI/ISSN/ISBN e home page (não viram entidade).
+
+O formato E traz **todos** os autores e anos pelo mesmo custo do formato atual e resolve
+também o problema estrutural (o chunk começar no meio de uma lista de autores separada do
+título). Linha de artigo: mediana de 156 tokens.
+
+**Onde vai o custo de uma indexação (V1-tuned, `custo_por_etapa.py` sobre o cache):**
+extração 50% (US$ 0,91; 210 chamadas = 105 + 105 de *gleaning*), relatórios de
+comunidade 38% (US$ 0,69), resumo de descrições 11% (US$ 0,20), embeddings <1%.
+O *gleaning* custa US$ 0,39 por indexação (22%) e é o único a trazer 243 das 1.583
+entidades finais: 61 PERSON, 42 COURSE, 30 ORGANIZATION… e 31 códigos numéricos
+(`000200000993`, `CURSO 90000015`), lixo que o formato E elimina na origem
+(`efeito_gleaning.py`). Mantido por ora: desligá-lo perderia ~60 pessoas por currículo.
+
+**Cache de prompt da Azure:** 44% da entrada de chat do V1-tuned (854.400 tokens) veio
+com `cached_tokens` (extração 49%, relatórios 50%, resumo 0% — prompt curto demais, o
+mínimo é 1.024 tokens). O medidor `ProcessedPromptTokens` conta tudo a preço cheio; se a
+Azure cobrar o cache como a OpenAI (1/4 do preço de entrada no gpt-4.1-mini), o custo
+faturado do V1-tuned é ~US$ 1,57, não 1,83. **Os custos deste registro são tetos**;
+confirmar no Cost Management quando ele sair do atraso de 24–48 h.
 
 ---
 
@@ -473,3 +514,235 @@ Em `C:\Users\felip\Documents\00 - TCC\`:
   rastreabilidade das citações (38/38), diluição do sujeito nos community reports.
 - `figura-d1-e-artefatos-de-extracao.md` — números da nota de limitação (tipos fora de
   `entity_types`, nós-fantasma, quase-duplicatas).
+
+---
+
+## 14. Arquitetura de dados e visualização do grafo (pesquisa de 20/09/2026)
+
+Pesquisa na documentação oficial do GraphRAG e nas soluções da Microsoft, para decidir
+se vale um banco (camadas bronze/silver/gold) antes da indexação e como ver o grafo.
+
+### O que a Microsoft faz
+
+- **Entrada:** o GraphRAG aceita `.txt`, `.csv`, `.json`, `.jsonl`, `.parquet` e
+  MarkItDown; tudo vira um DataFrame de documentos (`id`, `text`, `title`,
+  `creation_date`, `raw_data`). **Não há banco antes da indexação**, e a documentação
+  ainda oferece passar um DataFrame direto pela API, pulando o carregamento de arquivos
+  ([Inputs](https://microsoft.github.io/graphrag/index/inputs/)).
+- **Saída:** tabelas **Parquet** (`entities`, `relationships`, `communities`,
+  `community_reports`, `text_units`, `documents`) mais os embeddings no vector store
+  configurado. O armazenamento pode ser `file`, `memory`, `blob` ou `cosmosdb`
+  ([Configuração](https://microsoft.github.io/graphrag/config/yaml/)).
+- **Nas soluções em nuvem** (GraphRAG Accelerator, CosmosAIGraph) a Microsoft usa Azure
+  Storage para os arquivos, Cosmos DB (Gremlin) para entidades e relações e AI Search
+  para os vetores. É a mesma separação em camadas, com serviços pagos — não é requisito
+  do framework ([graphrag-accelerator](https://github.com/Azure-Samples/graphrag-accelerator),
+  [CosmosAIGraph](https://learn.microsoft.com/en-us/azure/cosmos-db/gen-ai/cosmos-ai-graph)).
+- **Visualização:** o guia oficial usa o `graph.graphml` (habilitado por
+  `snapshots.graphml: true`, que já está ligado) aberto no **Gephi**, com plugin do
+  Leiden, cor por cluster, tamanho por grau e layouts OpenORD + ForceAtlas2
+  ([Visualization Guide](https://microsoft.github.io/graphrag/visualization_guide/)).
+- **Banco de grafos:** o próprio repositório do GraphRAG traz um notebook da comunidade
+  que importa os Parquet para o **Neo4j** via Cypher
+  ([notebook](https://github.com/microsoft/graphrag/blob/main/examples_notebooks/community_contrib/neo4j/graphrag_import_neo4j_cypher.ipynb),
+  [artigo do Neo4j](https://neo4j.com/blog/developer/microsoft-graphrag-neo4j/)).
+
+### Decisão para este TCC (menor custo)
+
+As camadas já existem como arquivos; um Postgres para 8 currículos acrescentaria
+infraestrutura sem responder nenhuma pergunta nova:
+
+| camada | o que é | onde está |
+|---|---|---|
+| bronze (bruto) | XML do Lattes | `lattesNAPI/lattes/*.xml` |
+| silver (tratado) | um registro por linha, sem dado sensível | `input/*.txt` + `MANIFEST.json` |
+| gold (grafo) | entidades, relações, comunidades, relatórios | `runs/<versao>/output/*.parquet` |
+| índice vetorial | só `id` + vetor de 1536 dimensões | `runs/<versao>/output/lancedb/` |
+
+O **LanceDB não guarda o grafo nem texto**: conferido no V1-tuned, as três tabelas
+(`entity_description`, `community_full_content`, `text_unit_text`) têm apenas `id`,
+`vector` e datas (12 MB). Ele serve à busca por similaridade; o conteúdo legível está
+nos Parquet.
+
+Para *ver* o grafo, em ordem de custo:
+
+1. **Gephi + `graph.graphml`** — caminho oficial, gratuito, gera as figuras da monografia.
+2. **DuckDB sobre os Parquet** — SQL na camada gold sem servidor nem carga
+   (`SELECT * FROM 'runs/v1-tuned/output/entities.parquet'`).
+3. **Neo4j Community local (Docker)** — banco de grafos de verdade, Cypher e navegador
+   para explorar; importação pelo notebook oficial. Gratuito, só custo de máquina.
+4. **Cosmos DB Gremlin** — o que a Microsoft usa na nuvem; **descartado** por custo.
+
+### Achado aproveitável: `chunking.prepend_metadata`
+
+O GraphRAG pode repetir metadados do documento no topo de **cada chunk**
+(`chunking.prepend_metadata`, presente na 3.1.0). Com o `title` do documento levando o
+nome do titular, todo chunk passa a dizer de quem é o currículo — hoje um chunk no meio
+do arquivo não sabe. Custo estimado: ~10 tokens por chunk (~US$ 0,01 por indexação dos 8).
+
+### Ferramenta de consulta ao grafo (20/09/2026, custo zero)
+
+`duckdb` 1.5.5 instalado no venv. Dois artefatos versionados:
+
+- `scripts/consultas_grafo.sql` — 13 consultas sobre os `.parquet` de uma versão, com
+  views (`entidades`, `relacoes`, `comunidades`, `relatorios`, `trechos`). Para trocar de
+  versão, muda-se a pasta nas cinco linhas de `CREATE VIEW`. Serve também no **DBeaver
+  Community**: conexão DuckDB, banco `:memory:` (o driver Parquet nativo do DBeaver é
+  pago; o DuckDB contorna de graça).
+- `scripts/explorar_grafo.py [pasta] [--consulta N] [--ui]` — roda as consultas no
+  terminal; `--ui` abre a interface web local do DuckDB (extensão `ui`, disponível).
+
+Destaque: a consulta 6 monta a **rede de coautoria por caminho de dois passos** (pessoas
+que dividem a mesma produção). Como o prompt curado não cria aresta pessoa–pessoa, é
+assim que a colaboração é medida — e ela aparece: no V1-tuned, Márcio Luís Valença Araújo
+e Thiago Barros Murari dividem 13 produções; o titular divide 9 com Márcio.
+
+---
+
+## 15. Passo 2c — extrator com um registro por linha (V1-formatoE)
+
+Mesmo currículo e mesmos tipos do V1-tuned; muda o **formato do texto de entrada** e,
+com ele, os exemplos do prompt de extração. Congelado em `runs/v1-formatoE/`.
+Execução **diagnóstica**: `settings.workflows` reduzido, sem `create_community_reports`
+(38% do custo numa execução completa) e sem `generate_text_embeddings` — logo **esta
+versão não responde busca local/basic**, só serve para medir a extração.
+
+**Piloto antes de pagar a indexação** (`piloto_extracao.py`, 5 chunks, US$ 0,08 com a
+repetição por um erro meu de código): 130 entidades e 128 relações, **zero** tipos fora da
+lista, **zero** relações especulativas, **zero** vazamento dos exemplos e 2 relações
+pessoa–pessoa, ambas orientações reais. Foi o que autorizou seguir.
+
+| | V1-tuned | V1-formatoE |
+|---|---|---|
+| formato do texto | uma linha por campo, linhas repetidas removidas no arquivo todo | um registro por linha, sem deduplicação global |
+| chunks | 105 | 91 |
+| entidades | 1.583 | 1.422 |
+| relações | 1.389 | **2.719** |
+| comunidades | 226 | 349 |
+| entidades isoladas | 283 | **91** |
+| tipos fora da lista | 8 | **0** |
+| relações especulativas | 4 | 1 |
+| arestas pessoa–produção | 680 | **1.358** |
+| **produções do titular** | **19** | **299** |
+| grau do titular | 42 | 597 |
+| pares de coautores (2 passos) | 954 | 2.137 |
+| arestas pessoa–pessoa diretas | 0 | 63 |
+| vazamento dos exemplos sintéticos | 0 | 0 |
+
+Leitura: a correção do extrator era o gargalo real. Com o mesmo modelo, o mesmo currículo
+e menos chunks, o grafo ganhou **96% mais relações** e o titular passou de 19 para **299**
+produções próprias — porque o texto antigo apagava a linha de autoria dele em todas as
+produções a partir da segunda. As isoladas caíram de 283 para 91, e os tipos inventados
+(`TRABALHO TECNICO`, `PATENT`, `ORG`…) desapareceram, porque os códigos e rótulos que os
+geravam saíram do texto.
+
+A rede de coautoria mudou de figura: antes o titular dividia 9 produções com o
+colaborador mais frequente; agora divide **43 com Hugo Saba Pereira Cardoso**, 34 com
+Peterson Albuquerque Lobato e 24 com Márcio Luís Valença Araújo. A fragmentação de nomes
+segue pendente e agora é visível no próprio resultado: `HUGO SABA PEREIRA CARDOSO` (43) e
+`HUGO SABA` (42) são a mesma pessoa.
+
+Defeito residual: das 63 arestas pessoa–pessoa, **56 são orientações** (a exceção
+autorizada na instrução) e **7 são "participaram da mesma banca"** — que a instrução
+proíbe, por ser relação entre pessoas da mesma lista. São 7 em 2.719 (0,3%); anotado
+para a próxima iteração do prompt.
+
+**Custo (medidor da Azure, hora 00 UTC de 21/09, descontados os pilotos):**
+1.704.061 tokens de entrada + 590.320 de saída = **US$ 1,63**. Ficou acima da estimativa
+de US$ 0,95 porque o texto novo é mais denso: a saída por chunk quase dobrou (mais
+entidades e relações por chunk), e a saída custa 4× a entrada.
+
+---
+
+## 16. Passo 3 — V2: os 8 currículos do `lattesNAPI/`
+
+Formato E (um registro por linha), prompts do V1-formatoE, 9 tipos e, pela primeira vez,
+`chunking.prepend_metadata: [title]`: os arquivos de `input/` se chamam
+`<titular> - <id lattes>.txt` (opção `--nomear-por-titular` do extrator), e o GraphRAG
+repete esse `title` no topo de cada chunk — com 8 currículos no mesmo índice, um chunk do
+meio de um arquivo passa a dizer de quem é o currículo. 681.933 tokens, 622 chunks.
+
+Estimativa antes de rodar (taxa medida no 2c): **US$ 18,40 no teto**, ~US$ 16,50 com o
+desconto de cache de prompt. Metade disso é extração; o resto, relatórios de comunidade.
+
+### Tentativa 1 (21/09, 01:48–02:36 UTC) — falhou
+
+A extração abortou com `litellm.RateLimitError` (**337 erros 429**) depois de 48 min.
+Causa: o modelo de chat estava **sem `rate_limit`** no `settings.yaml`, e o GraphRAG
+dispara requisições em paralelo sem freio; com 91–105 chunks cabia nos 200 mil
+tokens/min do deployment, com 622 não. O GraphRAG imprimiu `Pipeline complete` e saiu
+com **código 0 mesmo tendo falhado** — só `documents` e `text_units` foram gravados.
+
+- Custo (medidor, horas 01 e 02 UTC): 8.905.419 entrada + 3.448.018 saída = **US$ 9,08**.
+- **Não foi perdido:** 1.210 das 1.244 chamadas de extração ficaram no `cache/`
+  (2.500 de 2.534 tentativas deram certo) e são reaproveitadas de graça.
+- Saída parcial guardada em `runs/_evidencias-sessao-2026-09/passo3-v2/tentativa1-falhou/`.
+
+Correções (sem custo):
+
+1. `rate_limit` (janela deslizante) e `max_retries: 10` no modelo de chat.
+2. Deployment `gpt-4.1-mini` de **200 para 1.000 unidades** (1 M tokens e 1.000
+   requisições por minuto) — a assinatura tinha 5.000 disponíveis e, no GlobalStandard,
+   capacidade não custa: paga-se por token. O `rate_limit` usa 80% disso.
+3. Retomada em duas etapas, para não arriscar os relatórios num pipeline que ainda não
+   tinha ido até o fim: (1) só o grafo, (2) relatórios e embeddings.
+
+Armadilha anotada: **não usar `$` em comentários do `settings.yaml`** — o GraphRAG passa
+o arquivo por `string.Template.substitute`, e "US$ 9" virou placeholder inválido.
+
+### Tentativa 2 (21/09, em duas etapas) — concluída
+
+| etapa | o quê | duração | custo (medidor) |
+|---|---|---|---|
+| 1 | grafo: extração, resumo de descrições, comunidades | 18:50–19:12 UTC (22 min) | US$ 2,21 |
+| 2 | relatórios de comunidade + embeddings | 19:13–19:43 UTC (30 min) | US$ 6,47 |
+| — | tentativa 1 (abortada, encheu o cache) | 48 min | US$ 9,08 |
+| | **V2 total** | | **US$ 17,76** |
+
+Zero `RateLimitError` nas duas etapas. A etapa 1 custou US$ 2,21 em vez dos ~US$ 11 de
+uma extração do zero, porque 1.210 das 1.244 chamadas vieram do cache da tentativa 1 —
+o dinheiro da falha não se perdeu. A estimativa prévia (US$ 18,40 no teto) ficou 3,6%
+acima do real.
+
+Congelado em `runs/v2-npai/` (93 MB de output).
+
+| | V1-formatoE (1 currículo) | **V2 (8 currículos)** |
+|---|---|---|
+| chunks | 91 | 622 |
+| entidades | 1.422 | 8.664 |
+| relações | 2.719 | 18.746 |
+| comunidades / relatórios | 349 | 1.961 / 1.961 |
+| entidades isoladas | 91 | 644 (7,4%) |
+| relações especulativas | 1 | 28 (0,1%) |
+| tipos fora da lista | 0 | 4 |
+
+Pares de tipos mais frequentes: PERSON–PUBLICATION 7.146, EVENT–PERSON 1.413,
+PERSON–PROJECT 1.137, ORGANIZATION–PUBLICATION 911, PERSON–SOFTWARE 886,
+KNOWLEDGE_AREA–PUBLICATION 779, PERSON–PERSON 623 (orientações e bancas).
+
+**A rede de colaboração entre os 8 apareceu** (coautoria por caminho de dois passos,
+produções em comum) — 19 dos 28 pares possíveis se conectam:
+
+| par | produções em comum |
+|---|---|
+| Eduardo Manuel de Freitas Jorge / Hugo Saba Pereira Cardoso | 161 |
+| Aloisio Santos Nascimento Filho / Hugo Saba Pereira Cardoso | 102 |
+| Aloisio Santos Nascimento Filho / Eduardo Manuel de Freitas Jorge | 45 |
+| Hugo Saba Pereira Cardoso / José Garcia Vivas Miranda | 45 |
+| José Garcia Vivas Miranda / Raphael Silva do Rosário | 42 |
+| Eduardo Manuel de Freitas Jorge / José Garcia Vivas Miranda | 17 |
+
+Grau dos titulares: Maria Fernanda Rios Grassi 1.120, Hugo Saba 825, Eduardo Jorge 810,
+José Garcia Vivas Miranda 692, Aloisio Santos Nascimento Filho 437, Mayara Almeida 258,
+Raphael do Rosário 156, Paulo Jorge Silveira Ferreira 14 (currículo com 14 linhas).
+
+**Fragmentação de nomes, agora quantificada nos 8 titulares** (variantes da mesma
+pessoa como entidades distintas): Eduardo 15, Aloisio 11, José Garcia 10, Hugo Saba 10,
+Maria Fernanda 8, Raphael 7, Paulo Jorge 6, Mayara 2. É a principal ameaça à validade
+das métricas de rede e o argumento mais forte para uma etapa de resolução de entidades.
+
+**Vazamento dos exemplos sintéticos: 1 em 8.664** — `MARCELO DANTAS ARAGÃO` entrou como
+entidade **isolada** (grau 0, frequência 1, sem nenhuma relação). Os demais alertas da
+busca eram homônimos reais de sobrenome (Alcântara, Aragão, Caldeira, Quintela,
+Valadares existem entre os coautores). Ou seja: a escolha de nomes sintéticos cumpriu o
+papel — o vazamento é detectável e mensurável, e não teria como sê-lo com trecho real.
