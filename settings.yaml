@@ -13,8 +13,19 @@ completion_models:
     deployment_name: gpt-4.1-mini
     api_base: https://lattes-graphrag-tcc.openai.azure.com
     api_version: "2025-01-01-preview"
+    # Sem rate_limit, o graphrag dispara requisicoes em paralelo sem freio e estoura o
+    # TPM do deployment: foi o que abortou o V2 em 21/09/2026 (337 RateLimitError,
+    # 9,08 dolares gastos sem grafo). A janela deslizante mantem o consumo sob a cota.
+    # Deployment com 1000 unidades desde 21/09 (1M tokens e 1000 requisicoes por
+    # minuto); o limite abaixo usa 80% disso como folga.
+    rate_limit:
+      type: sliding_window
+      period_in_seconds: 60
+      tokens_per_period: 800000
+      requests_per_period: 800
     retry:
       type: exponential_backoff
+      max_retries: 10
 
 embedding_models:
   default_embedding_model:
@@ -60,6 +71,19 @@ chunking:
   size: 1200
   overlap: 100
   encoding_model: o200k_base
+  # O title do documento e o nome do arquivo ("<titular> - <id lattes>.txt"). Repetir
+  # isso no topo de cada chunk diz de quem e o curriculo; sem isso, um chunk do meio do
+  # arquivo nao sabe (critico com varios curriculos no mesmo indice).
+  prepend_metadata:
+    - title
+
+# Para uma execucao diagnostica (so o grafo, sem relatorios de comunidade nem
+# embeddings), descomentar o bloco abaixo -- foi o que o passo 2c usou.
+# O V2 rodou em duas etapas (21/09): primeiro a lista acima (grafo), depois
+# [create_community_reports, generate_text_embeddings] sobre o output ja gravado.
+# workflows:
+#   - create_community_reports
+#   - generate_text_embeddings
 
 ### Storage settings ###
 ## If blob storage is specified in the following four sections,
