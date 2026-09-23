@@ -746,3 +746,37 @@ entidade **isolada** (grau 0, frequência 1, sem nenhuma relação). Os demais a
 busca eram homônimos reais de sobrenome (Alcântara, Aragão, Caldeira, Quintela,
 Valadares existem entre os coautores). Ou seja: a escolha de nomes sintéticos cumpriu o
 papel — o vazamento é detectável e mensurável, e não teria como sê-lo com trecho real.
+
+---
+
+## 17. Página de visualização (`site/`)
+
+Custo zero: lê os JSON gerados por `scripts/exportar_site.py` a partir dos Parquet
+(camada gold → camada de serviço). Bibliotecas do grafo em `site/vendor/` (funciona
+offline). `site/dados/` fora do Git (dado pessoal). Servir com
+`python -m http.server 8777 --directory site`.
+
+**Três visões, inspiradas no viewer do Databricks** (a visão do todo, lá e aqui, é difícil
+de ler; o que funciona são as visões focadas):
+
+- **Visão geral:** os 8 pesquisadores; cada linha conta as produções ligadas aos dois
+  (Eduardo × Hugo 161). Ordem no círculo gulosa, para os pares fortes ficarem vizinhos;
+  só as arestas com ≥ 10 produções levam número. Clique na linha lista as produções.
+- **Radial:** a entidade no centro e os vizinhos em **caixas por tipo** (Pessoas,
+  Publicações, Projetos…), os mais ligados primeiro ("10 de 350"). Desenhada em pixels
+  (`autoRescale: false`): linhas de 27 px e caixas de 270 px em qualquer tela; o que não
+  cabe fica a um arrasto. Clicar num vizinho o centraliza; o caminho fica no topo.
+- **Exploração livre:** o grafo inteiro com filtros, ForceAtlas2 em *worker*.
+
+**Cores** (paleta categórica validada pela skill de dataviz: CVD ≥ 8,4 e visão normal ≥
+19,3 no escuro; ordem fixa, nunca em ciclo): **8 cores = 8 pesquisadores**. Entidade
+citada em 2+ currículos ganha cor neutra clara — são as **pontes** do grupo, e na
+exploração livre formam o miolo do grafo. Por tipo: os 8 tipos principais com cor própria,
+Local e tipos inválidos em "Outros". Por comunidade: as 7 maiores do nível 0 (que
+correspondem às linhas de pesquisa de cada titular) e o resto em "Outras". Antes, a paleta
+de 10 cores repetia em ciclo e uma entidade compartilhada herdava a cor do primeiro
+pesquisador em ordem alfabética.
+
+**Legibilidade:** rótulos com fundo ("chip") e 13 px, fontes-base maiores, nomes de tipo em
+português, glossário ("?") com todos os termos (entidade, relação, grau, menções,
+comunidade, nível, relatório, pontes, variantes de nome) e dicas ao passar o mouse.

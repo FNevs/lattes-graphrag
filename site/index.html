@@ -6,10 +6,10 @@
 <title>Grafo de Currículos Lattes — GraphRAG</title>
 <link rel="stylesheet" href="estilos.css">
 </head>
-<body data-tema="escuro">
+<body data-tema="escuro" data-modo="geral">
 
 <header class="barra">
-  <button class="icone apenas-estreito" id="btn-menu" title="Filtros" aria-label="Abrir filtros">☰</button>
+  <button class="icone apenas-estreito" id="btn-menu" title="Filtros e pesquisadores" aria-label="Abrir filtros">☰</button>
 
   <div class="marca">
     <span class="marca-icone" aria-hidden="true">◍</span>
@@ -22,27 +22,25 @@
   <div class="metricas" id="metricas"></div>
 
   <div class="controles">
-    <label class="campo">
+    <label class="campo" title="Cada versão é uma indexação diferente do experimento">
       <span>Versão</span>
       <select id="sel-versao"></select>
     </label>
-    <label class="campo" id="campo-cor">
+    <label class="campo" id="campo-cor" title="O que a cor dos nós representa">
       <span>Cor</span>
       <select id="sel-cor">
-        <option value="pesquisador">Pesquisador</option>
-        <option value="tipo">Tipo</option>
+        <option value="pesquisador">Currículo de origem</option>
+        <option value="tipo">Tipo de entidade</option>
         <option value="comunidade">Comunidade</option>
       </select>
-    </label>
-    <label class="alternar" title="Recalcula o layout continuamente">
-      <input type="checkbox" id="chk-animar"> <span>Animar</span>
     </label>
     <div class="botoes">
       <button class="icone" id="btn-menos" title="Afastar" aria-label="Afastar">−</button>
       <button class="icone" id="btn-mais" title="Aproximar" aria-label="Aproximar">+</button>
-      <button class="icone" id="btn-ajustar" title="Enquadrar" aria-label="Enquadrar">⤢</button>
-      <button class="icone" id="btn-png" title="Baixar imagem" aria-label="Baixar imagem">⤓</button>
-      <button class="icone" id="btn-tema" title="Tema claro/escuro" aria-label="Alternar tema">◐</button>
+      <button class="icone" id="btn-ajustar" title="Enquadrar tudo" aria-label="Enquadrar">⤢</button>
+      <button class="icone" id="btn-png" title="Baixar a imagem do grafo" aria-label="Baixar imagem">⤓</button>
+      <button class="icone" id="btn-tema" title="Tema claro ou escuro" aria-label="Alternar tema">◐</button>
+      <button class="icone destaque" id="btn-conceitos" title="O que significa cada termo" aria-label="Conceitos">?</button>
     </div>
     <button class="icone apenas-estreito" id="btn-painel" title="Detalhes" aria-label="Abrir detalhes">ℹ</button>
   </div>
@@ -51,46 +49,77 @@
 <main class="corpo">
   <aside class="lateral" id="lateral">
     <div class="busca">
-      <input type="search" id="busca" placeholder="Buscar pessoa, produção, projeto…" autocomplete="off">
+      <input type="search" id="busca" placeholder="Buscar pessoa, produção, projeto…" autocomplete="off"
+             aria-label="Buscar entidade">
       <ul id="sugestoes" class="sugestoes" hidden></ul>
     </div>
 
     <section class="grupo">
-      <h2>Pesquisadores <small id="conta-pesquisadores"></small></h2>
+      <h2 title="Os currículos indexados. Clique em um nome para ver a rede daquela pessoa.">
+        Pesquisadores <small id="conta-pesquisadores"></small>
+      </h2>
       <ul id="lista-pesquisadores" class="lista"></ul>
+      <p class="dica-lateral">Clique em um nome para abrir a rede da pessoa.</p>
     </section>
 
     <section class="grupo">
-      <h2>Tipos de entidade</h2>
+      <h2 title="O que a entidade é. Clique para mostrar ou esconder um tipo; Alt+clique mostra só ele.">
+        Tipos de entidade
+      </h2>
       <ul id="lista-tipos" class="lista"></ul>
+      <p class="dica-lateral">Clique para esconder ou mostrar. <kbd>Alt</kbd>+clique mostra só aquele tipo.</p>
     </section>
 
-    <section class="grupo">
+    <section class="grupo so-radial">
       <h2>Exibição</h2>
-      <div id="extras-lateral"></div>
-      <label class="deslizante">
+      <div class="extras-lateral"></div>
+      <label class="deslizante" title="Quantos itens cada caixa mostra, dos mais conectados para os menos">
+        <span>Itens por caixa: <strong id="valor-grupo">10</strong></span>
+        <input type="range" id="por-grupo" min="4" max="30" value="10">
+      </label>
+    </section>
+
+    <section class="grupo so-livre">
+      <h2>Exibição</h2>
+      <div class="extras-lateral"></div>
+      <label class="deslizante" title="Esconde entidades com menos conexões que isto">
         <span>Mínimo de conexões: <strong id="valor-grau">0</strong></span>
         <input type="range" id="grau-min" min="0" max="20" value="0">
       </label>
-      <label class="deslizante">
+      <label class="deslizante" title="Teto de nós desenhados; os mais conectados entram primeiro">
         <span>Máximo de nós: <strong id="valor-limite">1200</strong></span>
         <input type="range" id="limite" min="200" max="4000" step="200" value="1200">
       </label>
-      <label class="alternar"><input type="checkbox" id="chk-isoladas"> <span>Incluir isoladas</span></label>
-      <button class="botao-largo" id="btn-limpar">Limpar filtros</button>
+      <label class="alternar" title="Entidades sem nenhuma relação no grafo">
+        <input type="checkbox" id="chk-isoladas"> <span>Incluir entidades isoladas</span>
+      </label>
+      <label class="alternar" title="Continua reorganizando o layout até você desligar">
+        <input type="checkbox" id="chk-animar"> <span>Layout contínuo</span>
+      </label>
     </section>
+
+    <button class="botao-largo" id="btn-limpar">Limpar filtros</button>
 
     <p class="aviso">Dados de currículos reais: uso local, não publicar (LGPD).</p>
   </aside>
 
   <section class="palco">
+    <nav class="navegacao">
+      <div class="modos" role="tablist" aria-label="Modo de visualização">
+        <button class="modo ativo" data-modo="geral" role="tab">Visão geral</button>
+        <button class="modo" data-modo="livre" role="tab">Exploração livre</button>
+      </div>
+      <ol class="trilha" id="trilha" aria-label="Caminho"></ol>
+    </nav>
     <div id="grafo"></div>
+    <div class="dica" id="dica" hidden></div>
     <div class="rodape-palco">
       <span id="contador">—</span>
       <span id="estado-layout"></span>
     </div>
     <div class="legenda" id="legenda"></div>
-    <div class="carregando" id="carregando"><span class="giro"></span> carregando…</div>
+    <button class="legenda-botao" id="btn-legenda" aria-expanded="true" title="Mostrar ou esconder a legenda">Legenda</button>
+    <div class="carregando" id="carregando"><span class="giro"></span><span id="texto-carregando">carregando…</span></div>
   </section>
 
   <aside class="painel" id="painel">
@@ -100,13 +129,79 @@
       <button class="aba" data-aba="consultas">Consultas</button>
       <button class="icone apenas-estreito" id="btn-fechar-painel" aria-label="Fechar">×</button>
     </nav>
-    <div class="aba-conteudo ativa" id="aba-detalhes">
-      <p class="vazio">Clique em um nó ou em uma aresta para ver os detalhes.</p>
-    </div>
+    <div class="aba-conteudo ativa" id="aba-detalhes"></div>
     <div class="aba-conteudo" id="aba-comunidades"></div>
     <div class="aba-conteudo" id="aba-consultas"></div>
   </aside>
 </main>
+
+<dialog id="conceitos" class="conceitos" aria-labelledby="titulo-conceitos">
+  <header>
+    <h2 id="titulo-conceitos">Conceitos</h2>
+    <button class="icone" id="btn-fechar-conceitos" aria-label="Fechar">×</button>
+  </header>
+  <div class="conceitos-corpo">
+    <p class="introducao">Este grafo foi gerado pelo <strong>GraphRAG</strong> (Microsoft) a partir do texto dos
+      currículos Lattes. Um modelo de linguagem leu cada trecho e anotou <em>o que existe</em> (entidades) e
+      <em>como as coisas se ligam</em> (relações). Nada aqui é digitado à mão: tudo foi extraído do texto.</p>
+
+    <h3>Estrutura do grafo</h3>
+    <dl>
+      <dt>Entidade (nó)</dt>
+      <dd>Uma coisa que o currículo cita: uma pessoa, um artigo, um projeto, uma instituição. Cada bolinha.</dd>
+      <dt>Relação (aresta)</dt>
+      <dd>Uma ligação que o texto afirma entre duas entidades — por exemplo, "fulano é autor do artigo X".
+        Cada linha. Passe o mouse sobre ela para ler a frase que a justifica.</dd>
+      <dt>Conexões (grau)</dt>
+      <dd>Quantas relações uma entidade tem. Define o tamanho do nó: quanto maior, mais ligada.</dd>
+      <dt>Menções</dt>
+      <dd>Em quantos trechos do texto a entidade apareceu. Alguém pode ser muito mencionado e pouco conectado.</dd>
+      <dt>Entidade isolada</dt>
+      <dd>Foi extraída, mas o texto não a liga a nada — por exemplo, um autor cuja produção ficou em outro trecho.</dd>
+      <dt>Em 2+ currículos</dt>
+      <dd>Entidades citadas por mais de um pesquisador. São as <strong>pontes</strong> do grupo: coautorias,
+        projetos e eventos em comum.</dd>
+    </dl>
+
+    <h3>Tipos de entidade</h3>
+    <dl id="glossario-tipos"></dl>
+
+    <h3>Comunidades</h3>
+    <dl>
+      <dt>Comunidade</dt>
+      <dd>Um grupo de entidades mais ligadas entre si do que com o resto, encontrado pelo algoritmo de Leiden.
+        Costuma corresponder a uma linha de pesquisa ou a um projeto.</dd>
+      <dt>Nível</dt>
+      <dd>As comunidades são hierárquicas. O nível 0 tem poucos grupos grandes; níveis maiores quebram cada
+        grupo em partes menores e mais específicas.</dd>
+      <dt>Relatório de comunidade</dt>
+      <dd>Um resumo em texto que o modelo escreveu para cada comunidade. É o que a busca "global" do GraphRAG usa
+        para responder perguntas sobre o conjunto.</dd>
+    </dl>
+
+    <h3>Leituras e cuidados</h3>
+    <dl>
+      <dt>Produções em comum</dt>
+      <dd>Na visão geral, a linha entre dois pesquisadores conta produções ligadas aos dois
+        (pessoa → produção ← pessoa). O modelo não cria aresta direta entre coautores: a coautoria aparece pela
+        produção que a justifica.</dd>
+      <dt>Variantes de nome</dt>
+      <dd>A mesma pessoa pode aparecer como vários nós ("HUGO SABA", "HUGO SABA PEREIRA CARDOSO"). O GraphRAG
+        não unifica grafias. É uma limitação conhecida e medida no TCC.</dd>
+      <dt>Versão</dt>
+      <dd>Cada versão é uma indexação diferente do experimento (modelo, prompt, formato do texto, número de
+        currículos). Trocar de versão permite comparar o efeito de cada mudança.</dd>
+    </dl>
+
+    <h3>Como navegar</h3>
+    <ul>
+      <li><strong>Visão geral</strong>: os pesquisadores e quantas produções cada par divide.</li>
+      <li>Clique num pesquisador para ver a rede dele em <strong>caixas por tipo</strong>.</li>
+      <li>Clique em qualquer nó para centralizá-lo; o caminho fica no topo e dá para voltar.</li>
+      <li><strong>Exploração livre</strong>: o grafo inteiro, com filtros de conexões e de quantidade.</li>
+    </ul>
+  </div>
+</dialog>
 
 <script src="vendor/graphology.umd.min.js"></script>
 <script src="vendor/graphology-library.min.js"></script>

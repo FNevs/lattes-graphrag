@@ -93,6 +93,8 @@ def exportar(versao_dir: Path) -> dict | None:
             pesquisadores.append({
                 "i": i, "nome": nome, "entidades": int(contagem.get(doc_id, 0)),
                 "grau": int(graus.get(nome.upper(), 0)),
+                # indice do no do titular; None se o nome nao casar exatamente
+                "no": indice.get(nome.upper()),
             })
 
     nos = [
@@ -113,13 +115,15 @@ def exportar(versao_dir: Path) -> dict | None:
     comunidades = []
     if tem_comunidades:
         colunas = "c.community AS id, c.level, c.parent, c.size, c.title"
-        sql = (f"SELECT {colunas}, r.summary, r.rank FROM communities c "
+        # Titulo do relatorio quando existe: "Community 16" nao diz nada a quem le.
+        sql = (f"SELECT {colunas}, r.summary, r.rank, r.title AS titulo_relatorio FROM communities c "
                "LEFT JOIN community_reports r ON r.community = c.community AND r.level = c.level"
-               if tem_relatorios else f"SELECT {colunas}, NULL AS summary, NULL AS rank FROM communities c")
+               if tem_relatorios else
+               f"SELECT {colunas}, NULL AS summary, NULL AS rank, NULL AS titulo_relatorio FROM communities c")
         for r in con.sql(sql + " ORDER BY c.level, c.size DESC").df().itertuples():
             comunidades.append({
                 "id": int(r.id), "n": int(r.level), "pai": int(r.parent), "tam": int(r.size),
-                "t": r.title, "s": texto(r.summary)[:600], "nota": numero(r.rank),
+                "t": texto(r.titulo_relatorio) or r.title, "s": texto(r.summary)[:600], "nota": numero(r.rank),
             })
         # comunidade de nivel 0 de cada no, para colorir
         nivel0 = con.sql("""
@@ -146,6 +150,29 @@ def exportar(versao_dir: Path) -> dict | None:
     pares = [[indice[r.p1], indice[r.p2], int(r.n)] for r in coautoria.itertuples()
              if r.p1 in indice and r.p2 in indice]
 
+    # Rede entre os titulares, para a visao geral: quantas producoes cada par divide
+    # e alguns titulos de exemplo (o painel mostra ao clicar na aresta).
+    rede_titulares = []
+    titulares = {p["nome"].upper(): p["i"] for p in pesquisadores}
+    if len(titulares) > 1:
+        lista = ", ".join("'" + n.replace("'", "''") + "'" for n in titulares)
+        comuns = con.sql(f"""
+            WITH autoria AS (
+              SELECT p.title AS pessoa, o.title AS prod FROM relationships r
+              JOIN entities p ON p.title = r.source AND p.type = 'PERSON'
+              JOIN entities o ON o.title = r.target AND o.type IN {PRODUCOES}
+              UNION
+              SELECT p.title, o.title FROM relationships r
+              JOIN entities p ON p.title = r.target AND p.type = 'PERSON'
+              JOIN entities o ON o.title = r.source AND o.type IN {PRODUCOES})
+            SELECT a.pessoa AS p1, b.pessoa AS p2, count(*) AS n,
+                   list(a.prod ORDER BY a.prod)[1:12] AS exemplos
+            FROM autoria a JOIN autoria b ON a.prod = b.prod AND a.pessoa < b.pessoa
+            WHERE upper(a.pessoa) IN ({lista}) AND upper(b.pessoa) IN ({lista})
+            GROUP BY 1, 2 ORDER BY 3 DESC""").df()
+        for r in comuns.itertuples():
+            rede_titulares.append([titulares[r.p1.upper()], titulares[r.p2.upper()], int(r.n), list(r.exemplos)])
+
     manifesto = {}
     arquivo_manifesto = versao_dir / "MANIFEST.json"
     if arquivo_manifesto.exists():
@@ -167,6 +194,7 @@ def exportar(versao_dir: Path) -> dict | None:
         "pesquisadores": pesquisadores,
         "tipos": entidades["type"].value_counts().to_dict(),
         "nos": nos, "arestas": arestas, "comunidades": comunidades, "coautoria": pares,
+        "rede_titulares": rede_titulares,
     }
     SAIDA.mkdir(parents=True, exist_ok=True)
     destino = SAIDA / f"{versao_dir.name}.json"
@@ -200,8 +228,14 @@ def main() -> int:
 
     metas = [m for v in versoes if (m := exportar(v))]
     SAIDA.mkdir(parents=True, exist_ok=True)
-    (SAIDA / "versoes.json").write_text(
-        json.dumps(sorted(metas, key=lambda m: m["entidades"], reverse=True), ensure_ascii=False, indent=1),
+    # Mescla com o indice existente: exportar uma versao nao pode tirar as outras do seletor.
+    indice_arquivo = SAIDA / "versoes.json"
+    anteriores = json.loads(indice_arquivo.read_text(encoding="utf-8")) if indice_arquivo.exists() else []
+    por_versao = {m["versao"]: m for m in anteriores if (SAIDA / f"{m['versao']}.json").exists()}
+    por_versao.update({m["versao"]: m for m in metas})
+    indice_arquivo.write_text(
+        json.dumps(sorted(por_versao.values(), key=lambda m: m["entidades"], reverse=True),
+                   ensure_ascii=False, indent=1),
         encoding="utf-8")
     print(f"{len(metas)} versoes exportadas para {SAIDA}")
     return 0
