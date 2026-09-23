@@ -21,7 +21,6 @@ import pandas as pd
 
 SAIDA = Path("site/dados")
 PRODUCOES = ("PUBLICATION", "SOFTWARE", "PROJECT")
-TAMANHO_DESCRICAO = 400
 DESCRICOES = {
     "v0-tcc1": "TCC1: 1 curriculo, gpt-4o-mini, GraphRAG 3.0.4, texto NFKC, prompts padrao.",
     "v1-base-nfkc": "Mesmo curriculo e texto do TCC1 com gpt-4.1-mini e GraphRAG 3.1.0.",
@@ -67,8 +66,8 @@ def exportar(versao_dir: Path) -> dict | None:
     tem_docs = tabela(con, pasta, "documents")
     tem_trechos = tabela(con, pasta, "text_units")
 
-    entidades = con.sql(f"""
-        SELECT title, type, degree, frequency, left(description, {TAMANHO_DESCRICAO}) AS description
+    entidades = con.sql("""
+        SELECT title, type, degree, frequency, description
         FROM entities ORDER BY degree DESC, title""").df()
     indice = {t: i for i, t in enumerate(entidades["title"])}
 
@@ -105,7 +104,9 @@ def exportar(versao_dir: Path) -> dict | None:
         for r in entidades.itertuples()
     ]
 
-    relacoes = con.sql("SELECT source, target, weight, left(description, 300) AS description FROM relationships").df()
+    # Texto completo: cortar aqui deixava 31% das descricoes de entidade e 11% das de
+    # relacao pela metade no painel do site.
+    relacoes = con.sql("SELECT source, target, weight, description FROM relationships").df()
     arestas = [
         [indice[r.source], indice[r.target], round(numero(r.weight) or 1.0, 1), texto(r.description)]
         for r in relacoes.itertuples()
@@ -123,7 +124,7 @@ def exportar(versao_dir: Path) -> dict | None:
         for r in con.sql(sql + " ORDER BY c.level, c.size DESC").df().itertuples():
             comunidades.append({
                 "id": int(r.id), "n": int(r.level), "pai": int(r.parent), "tam": int(r.size),
-                "t": texto(r.titulo_relatorio) or r.title, "s": texto(r.summary)[:600], "nota": numero(r.rank),
+                "t": texto(r.titulo_relatorio) or r.title, "s": texto(r.summary), "nota": numero(r.rank),
             })
         # comunidade de nivel 0 de cada no, para colorir
         nivel0 = con.sql("""

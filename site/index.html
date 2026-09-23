@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Grafo de Currículos Lattes — GraphRAG</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="icone-64.png">
+<link rel="apple-touch-icon" href="icone-256.png">
 <link rel="stylesheet" href="estilos.css">
 </head>
 <body data-tema="escuro" data-modo="geral">
@@ -12,7 +15,7 @@
   <button class="icone apenas-estreito" id="btn-menu" title="Filtros e pesquisadores" aria-label="Abrir filtros">☰</button>
 
   <div class="marca">
-    <span class="marca-icone" aria-hidden="true">◍</span>
+    <img class="marca-icone" src="icone-64.png" alt="" width="34" height="34">
     <div>
       <h1>Grafo de Currículos Lattes</h1>
       <p id="versao-descricao">carregando…</p>
@@ -48,6 +51,11 @@
 
 <main class="corpo">
   <aside class="lateral" id="lateral">
+    <div class="modos" role="tablist" aria-label="Modo de visualização">
+      <button class="modo ativo" data-modo="geral" role="tab" title="Os pesquisadores e as produções em comum; clique para aprofundar">Visão geral</button>
+      <button class="modo" data-modo="livre" role="tab" title="O grafo inteiro, com filtros">Exploração livre</button>
+    </div>
+
     <div class="busca">
       <input type="search" id="busca" placeholder="Buscar pessoa, produção, projeto…" autocomplete="off"
              aria-label="Buscar entidade">
@@ -59,7 +67,8 @@
         Pesquisadores <small id="conta-pesquisadores"></small>
       </h2>
       <ul id="lista-pesquisadores" class="lista"></ul>
-      <p class="dica-lateral">Clique em um nome para abrir a rede da pessoa.</p>
+      <p class="dica-lateral">Clique em um nome para abrir a rede da pessoa. No grafo, arraste os nós para
+        reorganizar o espaço.</p>
     </section>
 
     <section class="grupo">
@@ -103,15 +112,13 @@
     <p class="aviso">Dados de currículos reais: uso local, não publicar (LGPD).</p>
   </aside>
 
+  <div class="divisor" data-lado="lateral" role="separator" aria-orientation="vertical"
+       title="Arraste para ajustar a largura · clique duplo volta ao padrão"></div>
+
   <section class="palco">
-    <nav class="navegacao">
-      <div class="modos" role="tablist" aria-label="Modo de visualização">
-        <button class="modo ativo" data-modo="geral" role="tab">Visão geral</button>
-        <button class="modo" data-modo="livre" role="tab">Exploração livre</button>
-      </div>
-      <ol class="trilha" id="trilha" aria-label="Caminho"></ol>
-    </nav>
     <div id="grafo"></div>
+    <button class="voltar" id="btn-voltar" hidden title="Voltar à visão anterior (Alt+←)">← Voltar</button>
+    <div class="foco" id="foco" hidden><i></i><span></span></div>
     <div class="dica" id="dica" hidden></div>
     <div class="rodape-palco">
       <span id="contador">—</span>
@@ -121,6 +128,9 @@
     <button class="legenda-botao" id="btn-legenda" aria-expanded="true" title="Mostrar ou esconder a legenda">Legenda</button>
     <div class="carregando" id="carregando"><span class="giro"></span><span id="texto-carregando">carregando…</span></div>
   </section>
+
+  <div class="divisor" data-lado="painel" role="separator" aria-orientation="vertical"
+       title="Arraste para ajustar a largura · clique duplo volta ao padrão"></div>
 
   <aside class="painel" id="painel">
     <nav class="abas">
@@ -197,7 +207,9 @@
     <ul>
       <li><strong>Visão geral</strong>: os pesquisadores e quantas produções cada par divide.</li>
       <li>Clique num pesquisador para ver a rede dele em <strong>caixas por tipo</strong>.</li>
-      <li>Clique em qualquer nó para centralizá-lo; o caminho fica no topo e dá para voltar.</li>
+      <li>Clique em qualquer nó para centralizá-lo; o botão <strong>← Voltar</strong> desfaz o passo.</li>
+      <li>Arraste um nó para reorganizar o espaço; a caixa do tipo acompanha.</li>
+      <li>Arraste as bordas das colunas para dar mais espaço ao grafo ou ao painel.</li>
       <li><strong>Exploração livre</strong>: o grafo inteiro, com filtros de conexões e de quantidade.</li>
     </ul>
   </div>

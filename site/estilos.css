@@ -15,6 +15,9 @@
   --sombra: 0 10px 30px rgba(0, 0, 0, .45);
   --lateral: 280px;
   --painel: 360px;
+  --raio: 14px;
+  --raio-m: 10px;
+  --fundo-0: #090c11;
 }
 
 body[data-tema="claro"] {
@@ -27,6 +30,7 @@ body[data-tema="claro"] {
   --texto-3: #66717f;
   --grade: rgba(40, 55, 80, .10);
   --sombra: 0 10px 30px rgba(20, 30, 50, .12);
+  --fundo-0: #e6eaf0;
 }
 
 * { box-sizing: border-box; }
@@ -34,7 +38,7 @@ body[data-tema="claro"] {
 html, body {
   height: 100%;
   margin: 0;
-  background: var(--fundo);
+  background: var(--fundo-0);
   color: var(--texto);
   font: 14px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
   overflow: hidden;
@@ -54,25 +58,27 @@ kbd {
   display: flex;
   align-items: center;
   gap: 18px;
-  height: 60px;
+  height: 64px;
   padding: 0 14px;
-  background: var(--fundo-2);
-  border-bottom: 1px solid var(--borda);
+  background: var(--fundo-0);
   position: relative;
   z-index: 20;
 }
 
 .marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.marca-icone { color: var(--realce); font-size: 22px; }
+.marca-icone { width: 34px; height: 34px; border-radius: 9px; flex: 0 0 auto; }
 .marca h1 { font-size: 16px; margin: 0; font-weight: 600; white-space: nowrap; }
 .marca p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 12px;
+  line-height: 1.3;
   color: var(--texto-2);
-  max-width: 36ch;
+  max-width: 44ch;
+  /* duas linhas: a descricao da versao cabe inteira na maioria das telas */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .metricas { display: flex; gap: 18px; flex: 1; min-width: 0; overflow: hidden; }
@@ -82,11 +88,11 @@ kbd {
 .controles { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .campo { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--texto-2); }
 .campo select {
-  background: var(--fundo-3);
+  background: var(--fundo-2);
   color: var(--texto);
   border: 1px solid var(--borda);
-  border-radius: 8px;
-  padding: 6px 8px;
+  border-radius: var(--raio-m);
+  padding: 7px 10px;
   font-size: 13.5px;
   max-width: 200px;
 }
@@ -97,14 +103,14 @@ kbd {
 .botoes { display: flex; gap: 4px; }
 
 .icone {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
-  background: var(--fundo-3);
+  background: var(--fundo-2);
   color: var(--texto);
   border: 1px solid var(--borda);
-  border-radius: 8px;
+  border-radius: var(--raio-m);
   cursor: pointer;
   font-size: 15px;
   line-height: 1;
@@ -116,23 +122,70 @@ kbd {
 
 .corpo {
   display: grid;
-  grid-template-columns: var(--lateral) 1fr var(--painel);
-  height: calc(100% - 60px);
+  grid-template-columns: var(--lateral) 8px minmax(0, 1fr) 8px var(--painel);
+  height: calc(100% - 64px);
+  padding: 0 8px 8px;
 }
 
+.lateral, .painel, .palco {
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
 .lateral, .painel {
   background: var(--fundo-2);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.lateral { border-right: 1px solid var(--borda); padding: 14px 12px 22px; }
-.painel { border-left: 1px solid var(--borda); display: flex; flex-direction: column; }
+.lateral { padding: 12px 12px 22px; }
+.painel { display: flex; flex-direction: column; }
+
+/* divisores: arrastar ajusta a largura da coluna vizinha */
+.divisor {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+}
+.divisor::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background .15s;
+}
+.divisor:hover::after, .divisor.ativo::after { background: var(--foco); }
+body.redimensionando { cursor: col-resize; user-select: none; }
+
+.modos {
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-m);
+  background: var(--fundo-3);
+  margin-bottom: 12px;
+}
+.modo {
+  flex: 1;
+  border: 0;
+  background: none;
+  color: var(--texto-2);
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.modo.ativo { background: var(--fundo-2); color: var(--texto); box-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
 
 .busca { position: relative; margin-bottom: 16px; }
 .busca input {
   width: 100%;
-  padding: 10px 11px;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: var(--raio-m);
   border: 1px solid var(--borda);
   background: var(--fundo-3);
   color: var(--texto);
@@ -179,8 +232,8 @@ kbd {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 7px 8px;
-  border-radius: 7px;
+  padding: 7px 9px;
+  border-radius: 9px;
   cursor: pointer;
   font-size: 14px;
   user-select: none;
@@ -205,7 +258,7 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
   width: 100%;
   margin-top: 6px;
   padding: 9px;
-  border-radius: 8px;
+  border-radius: var(--raio-m);
   border: 1px solid var(--borda);
   background: var(--fundo-3);
   color: var(--texto);
@@ -231,75 +284,52 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
   background-size: 24px 24px;
   overflow: hidden;
 }
-#grafo { position: absolute; inset: 52px 0 0 0; }
+#grafo { position: absolute; inset: 0; }
 
-.navegacao {
+.voltar {
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 52px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--borda);
-  background: color-mix(in srgb, var(--fundo-2) 88%, transparent);
+  top: 12px;
+  left: 12px;
   z-index: 6;
-}
-.modos {
-  display: flex;
-  padding: 3px;
-  gap: 2px;
+  padding: 7px 14px;
+  border-radius: var(--raio-m);
   border: 1px solid var(--borda);
-  border-radius: 9px;
-  background: var(--fundo-3);
-  flex: 0 0 auto;
-}
-.modo {
-  border: 0;
-  background: none;
-  color: var(--texto-2);
-  padding: 6px 12px;
-  border-radius: 6px;
+  background: var(--fundo-2);
+  color: var(--texto);
   font-size: 13.5px;
+  font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
+  box-shadow: var(--sombra);
 }
-.modo.ativo { background: var(--fundo-2); color: var(--texto); box-shadow: 0 1px 0 var(--borda); }
-
-.trilha {
+.voltar:hover { border-color: var(--foco); }
+.foco {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
   display: flex;
   align-items: center;
-  gap: 4px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  min-width: 0;
-  overflow: hidden;
-  font-size: 13.5px;
+  gap: 8px;
+  max-width: min(46%, 420px);
+  padding: 7px 12px;
+  border-radius: var(--raio-m);
+  border: 1px solid var(--borda);
+  background: var(--fundo-2);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--sombra);
 }
-.trilha li { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.trilha li + li::before { content: "›"; color: var(--texto-3); }
-.trilha button {
-  border: 0;
-  background: none;
-  color: var(--texto-2);
-  cursor: pointer;
-  font-size: 13.5px;
-  padding: 3px 4px;
-  border-radius: 5px;
-  max-width: 28ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.trilha button:hover { color: var(--texto); background: var(--fundo-3); }
-.trilha li:last-child button { color: var(--texto); font-weight: 600; }
+.foco[hidden] { display: none; }
+/* na visao geral cada no ja traz o nome escrito: a legenda seria repeticao e cobriria o grafo */
+body[data-modo="geral"] .legenda, body[data-modo="geral"] .legenda-botao { display: none; }
+.foco i { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.foco span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .dica {
   position: absolute;
-  max-width: 340px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  max-width: 360px;
+  padding: 9px 11px;
+  border-radius: var(--raio-m);
   background: var(--fundo-2);
   border: 1px solid var(--borda);
   box-shadow: var(--sombra);
@@ -325,8 +355,8 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
   color: var(--texto-2);
   background: color-mix(in srgb, var(--fundo-2) 90%, transparent);
   border: 1px solid var(--borda);
-  padding: 4px 9px;
-  border-radius: 7px;
+  padding: 5px 10px;
+  border-radius: var(--raio-m);
   pointer-events: none;
   z-index: 4;
 }
@@ -340,8 +370,8 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
   background: color-mix(in srgb, var(--fundo-2) 92%, transparent);
   color: var(--texto-2);
   font-size: 12.5px;
-  padding: 4px 10px;
-  border-radius: 7px;
+  padding: 5px 11px;
+  border-radius: var(--raio-m);
   cursor: pointer;
 }
 .legenda-botao:hover { color: var(--texto); border-color: var(--foco); }
@@ -362,18 +392,19 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
   color: var(--texto-2);
   background: color-mix(in srgb, var(--fundo-2) 90%, transparent);
   border: 1px solid var(--borda);
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 8px 12px;
+  border-radius: var(--raio-m);
   z-index: 4;
 }
 .legenda:empty { display: none; }
 .legenda span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .legenda i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+.legenda b { font-weight: 600; color: var(--texto); font-variant-numeric: tabular-nums; }
 .legenda i.anel { background: transparent !important; border: 2px solid var(--texto); }
 
 .carregando {
   position: absolute;
-  inset: 52px 0 0 0;
+  inset: 0;
   display: none;
   place-content: center;
   grid-auto-flow: column;
@@ -442,8 +473,8 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
 }
 .relacoes { list-style: none; margin: 0; padding: 0; }
 .relacoes li {
-  padding: 8px 9px;
-  border-radius: 7px;
+  padding: 9px 10px;
+  border-radius: var(--raio-m);
   background: var(--fundo-3);
   margin-bottom: 6px;
   cursor: pointer;
@@ -469,8 +500,8 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
 
 .lista-comunidades { list-style: none; margin: 0; padding: 0; }
 .lista-comunidades li {
-  padding: 9px;
-  border-radius: 8px;
+  padding: 10px;
+  border-radius: var(--raio-m);
   background: var(--fundo-3);
   margin-bottom: 7px;
   cursor: pointer;
@@ -503,7 +534,7 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
   max-height: 86vh;
   padding: 0;
   border: 1px solid var(--borda);
-  border-radius: 12px;
+  border-radius: 18px;
   background: var(--fundo-2);
   color: var(--texto);
   box-shadow: var(--sombra);
@@ -540,12 +571,13 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
 }
 
 @media (max-width: 1100px) {
-  .corpo { grid-template-columns: var(--lateral) 1fr; }
+  .corpo { grid-template-columns: var(--lateral) 8px minmax(0, 1fr); }
+  .divisor[data-lado="painel"] { display: none; }
   .painel {
     position: fixed;
-    top: 60px;
-    right: 0;
-    bottom: 0;
+    top: 64px;
+    right: 8px;
+    bottom: 8px;
     width: min(380px, 92vw);
     transform: translateX(100%);
     transition: transform .22s ease;
@@ -559,12 +591,13 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
 }
 
 @media (max-width: 860px) {
-  .corpo { grid-template-columns: 1fr; }
+  .corpo { grid-template-columns: minmax(0, 1fr); }
+  .divisor { display: none; }
   .lateral {
     position: fixed;
-    top: 60px;
-    left: 0;
-    bottom: 0;
+    top: 64px;
+    left: 8px;
+    bottom: 8px;
     width: min(310px, 88vw);
     transform: translateX(-100%);
     transition: transform .22s ease;
@@ -578,6 +611,7 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
   #sel-versao { max-width: 128px; }
   #btn-mais, #btn-menos { display: none; }
   .marca p { display: none; }
+  .foco { max-width: calc(100% - 130px); }
   .legenda { max-width: calc(100% - 24px); left: 12px; justify-content: flex-start; }
   /* o seletor de cor migra para a lateral (ver ajustarLayout no app.js) */
   .extras-lateral .campo { width: 100%; margin-bottom: 12px; }
@@ -592,5 +626,4 @@ body:not([data-modo="livre"]) .so-livre { display: none; }
   .marca h1 { font-size: 13.5px; }
   .botoes #btn-png, .botoes #btn-tema { display: none; }
   .modo { padding: 6px 9px; font-size: 13px; }
-  .trilha { font-size: 12.5px; }
 }

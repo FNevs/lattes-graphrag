@@ -33,7 +33,8 @@ const PALETA = {
 };
 const NEUTRO = { escuro: "#5f6a79", claro: "#a2acb8" };
 const PONTE = { escuro: "#dfe6ee", claro: "#27303c" };   // entidade citada em 2+ curriculos
-const ARESTA = { escuro: "rgba(150,165,185,.30)", claro: "rgba(60,75,95,.28)" };
+// No tema claro as linhas precisam de bem mais opacidade: com .28 quase sumiam no branco.
+const ARESTA = { escuro: "rgba(150,165,185,.38)", claro: "rgba(52,66,90,.55)" };
 const ARESTA_FOCO = { escuro: "rgba(255,106,61,.9)", claro: "rgba(214,72,30,.9)" };
 
 const estado = {
@@ -45,7 +46,11 @@ const estado = {
   caixas: [],
   modo: "geral",
   foco: null,
-  trilha: [],
+  visao: null,
+  historico: [],
+  escalaFixa: false,
+  razaoCamera: 1,
+  arrastou: false,
   filtros: { tipos: new Set(), grauMin: 0, limite: 1200, isoladas: false, porGrupo: 10, busca: "" },
   corComunidade: new Map(),
   animando: false,
@@ -82,18 +87,41 @@ function corPesquisador(i) { return i < 8 ? corSlot(i) : NEUTRO[tema()]; }
 function grupoDoTipo(y) { return ORDEM_TIPOS.includes(y) ? y : OUTROS; }
 function corTipo(y) { const k = ORDEM_TIPOS.indexOf(y); return k >= 0 ? corSlot(k) : NEUTRO[tema()]; }
 
-/** Cor do no segundo o modo escolhido. A cor segue a entidade, nunca a posicao no filtro. */
-function corDoNo(n) {
+/**
+ * Categoria do no no modo de cor escolhido: chave, rotulo, cor e ordem fixa na legenda.
+ * A cor segue a entidade, nunca a posicao no filtro.
+ */
+function categoria(n) {
   const modo = $("#sel-cor").value;
-  if (modo === "tipo") return corTipo(n.y);
+  const t = tema();
+  if (modo === "tipo") {
+    const k = ORDEM_TIPOS.indexOf(n.y);
+    return k >= 0
+      ? { chave: n.y, rotulo: TIPOS[n.y].nome, cor: corSlot(k), ordem: k, explica: TIPOS[n.y].desc }
+      : { chave: OUTROS, rotulo: "Outros", cor: NEUTRO[t], ordem: 99, explica: "Locais e tipos fora da lista" };
+  }
   if (modo === "comunidade") {
     const k = estado.corComunidade.get(n.c);
-    return k === undefined ? NEUTRO[tema()] : corSlot(k);
+    if (k === undefined) {
+      return { chave: "outras", rotulo: "Outras comunidades", cor: NEUTRO[t], ordem: 99, explica: "Comunidades menores, sem cor própria" };
+    }
+    const c = (estado.dados.comunidades || []).find((x) => x.id === n.c && x.n === 0);
+    const titulo = c ? c.t : `Comunidade ${n.c}`;
+    return { chave: `c${n.c}`, rotulo: encurta(titulo, 34), cor: corSlot(k), ordem: k, explica: titulo };
   }
-  if (!n.p || !n.p.length) return NEUTRO[tema()];
-  if (n.p.length > 1 && estado.dados.pesquisadores.length > 1) return PONTE[tema()];
-  return corPesquisador(n.p[0]);
+  if (!n.p || !n.p.length) {
+    return { chave: "sem", rotulo: "Sem currículo identificado", cor: NEUTRO[t], ordem: 99, explica: "" };
+  }
+  if (n.p.length > 1 && estado.dados.pesquisadores.length > 1) {
+    return { chave: "ponte", rotulo: "Em 2+ currículos", cor: PONTE[t], ordem: 50,
+      explica: "Entidade citada por mais de um pesquisador: uma ponte do grupo" };
+  }
+  const p = estado.dados.pesquisadores.find((x) => x.i === n.p[0]);
+  return { chave: `p${n.p[0]}`, rotulo: p ? nomeCurto(p.nome) : `#${n.p[0]}`, cor: corPesquisador(n.p[0]),
+    ordem: n.p[0], explica: p ? p.nome : "" };
 }
+
+function corDoNo(n) { return categoria(n).cor; }
 
 /** As 7 maiores comunidades de nivel 0 ganham cor; as demais ficam neutras ("Outras"). */
 function prepararCoresComunidade() {
@@ -142,6 +170,8 @@ async function carregarVersao(nome) {
   $("#valor-grau").textContent = slider.value;
   estado.filtros.grauMin = Number(slider.value);
 
+  estado.historico = [];
+  estado.visao = null;
   irParaGeral();
 }
 
@@ -238,83 +268,95 @@ function definirModo(modo) {
   });
 }
 
-function desenharTrilha() {
-  const ol = $("#trilha");
-  ol.innerHTML = "";
-  estado.trilha.forEach((passo, k) => {
-    const li = cria("li");
-    const b = cria("button", null, passo.rotulo);
-    b.title = passo.rotulo;
-    b.addEventListener("click", () => {
-      estado.trilha = estado.trilha.slice(0, k + 1);
-      passo.ir(false);
-    });
-    li.appendChild(b);
-    ol.appendChild(li);
-  });
-}
-
-function empilhar(rotulo, ir, raiz) {
-  if (raiz) estado.trilha = [];
-  estado.trilha.push({ rotulo, ir });
-  desenharTrilha();
-}
-
 function redesenhar() {
   if (estado.modo === "livre") desenharLivre();
   else if (estado.modo === "radial") desenharRadial(estado.foco);
   else desenharGeral();
 }
 
-/** Visao geral: com um curriculo so, cai direto na rede do titular. */
-function irParaGeral() {
-  definirModo("geral");
-  marcarPesquisadorAtivo(null);
-  estado.trilha = [{ rotulo: "Visão geral", ir: () => irParaGeral() }];
-  if (estado.dados.pesquisadores.length <= 1) {
-    const centro = noDoTitular(0);
-    estado.trilha = [];
-    empilhar("Visão geral", () => irParaGeral(), true);
-    abrirRadial(centro, false);
+/**
+ * Cada visao e {tipo, indice?, pesquisador?}. Navegar guarda a visao atual no historico;
+ * o botao Voltar (ou Alt+seta esquerda) a restaura, como no viewer do Databricks.
+ */
+function navegar(visao, registrar = true) {
+  if (registrar && estado.visao) estado.historico.push(estado.visao);
+  if (estado.historico.length > 60) estado.historico.shift();
+  estado.visao = visao;
+  mostrarVisao(visao);
+}
+
+function voltar() {
+  const anterior = estado.historico.pop();
+  if (!anterior) return;
+  estado.visao = anterior;
+  mostrarVisao(anterior);
+}
+
+function mostrarVisao(v) {
+  if (v.tipo === "livre") mostrarLivre();
+  else if (v.tipo === "radial") mostrarRadial(v.indice, v.pesquisador);
+  else mostrarGeral();
+  $("#btn-voltar").hidden = estado.historico.length === 0;
+}
+
+function irParaGeral() { navegar({ tipo: "geral" }); }
+function irParaLivre() { navegar({ tipo: "livre" }); }
+
+function irParaPesquisador(i) {
+  const centro = noDoTitular(i);
+  if (centro === null) return;
+  navegar({ tipo: "radial", indice: centro, pesquisador: i });
+}
+
+/** Centraliza uma entidade na visao radial (se ja for o foco, so atualiza o painel). */
+function abrirRadial(indice) {
+  if (estado.visao && estado.visao.tipo === "radial" && estado.visao.indice === indice) {
+    selecionarNo(indice, false);
     return;
   }
-  desenharTrilha();
+  navegar({ tipo: "radial", indice });
+}
+
+/** Visao geral: com um curriculo so, cai direto na rede do titular. */
+function mostrarGeral() {
+  if (estado.dados.pesquisadores.length <= 1) {
+    mostrarRadial(noDoTitular(0));
+    return;
+  }
+  definirModo("geral");
+  marcarPesquisadorAtivo(null);
+  mostrarFoco(null);
   desenharGeral();
   detalhesGeral();
 }
 
-function irParaPesquisador(i) {
-  const p = estado.dados.pesquisadores.find((x) => x.i === i);
-  const centro = noDoTitular(i);
-  if (centro === null) return;
-  estado.trilha = [];
-  empilhar("Visão geral", () => irParaGeral(), true);
-  marcarPesquisadorAtivo(i);
-  abrirRadial(centro, true, p ? p.nome : undefined);
-}
-
-/** Centraliza uma entidade na visao radial. */
-function abrirRadial(indice, empilhando = true, rotulo) {
+function mostrarRadial(indice, pesquisador) {
   definirModo("radial");
-  if (empilhando) {
-    const n = estado.dados.nos[indice];
-    empilhar(encurta(rotulo || n.t, 34), () => abrirRadial(indice, false, rotulo));
-  } else {
-    desenharTrilha();
-  }
+  const titular = estado.dados.pesquisadores.find((p) => p.no === indice);
+  marcarPesquisadorAtivo(pesquisador ?? (titular ? titular.i : null));
   estado.foco = indice;
+  mostrarFoco(estado.dados.nos[indice]);
   desenharRadial(indice);
   selecionarNo(indice, false);
 }
 
-function irParaLivre() {
+function mostrarLivre() {
   definirModo("livre");
   marcarPesquisadorAtivo(null);
-  estado.trilha = [];
-  empilhar("Exploração livre", () => irParaLivre(), true);
+  mostrarFoco(null);
   desenharLivre();
   $("#aba-detalhes").innerHTML = '<p class="vazio">Clique em um nó para ver o que o texto diz sobre ele. ' +
-    "Clique duas vezes para centralizá-lo na visão radial.</p>";
+    "Clique duas vezes para centralizá-lo na visão radial. Arraste os nós para reorganizar o espaço.</p>";
+}
+
+/** Selo no canto do grafo com a entidade em foco (como o nome da tabela no Databricks). */
+function mostrarFoco(n) {
+  const el = $("#foco");
+  if (!n) { el.hidden = true; return; }
+  el.hidden = false;
+  el.querySelector("i").style.background = corDoNo(n);
+  el.querySelector("span").textContent = n.t;
+  el.title = `${n.t} · ${nomeTipo(n.y)}`;
 }
 
 /** No da pessoa titular; se o nome nao casar (versoes antigas), a pessoa de maior grau. */
@@ -330,7 +372,10 @@ function noDoTitular(i) {
 function novoSigma(g, opcoes = {}) {
   pararLayout();
   if (estado.sigma) estado.sigma.kill();
+  estado.sigma = null;
   estado.grafo = g;
+  estado.escalaFixa = !!opcoes.escalaFixa;
+  estado.razaoCamera = 1;
   const t = tema();
   estado.sigma = new Sigma(g, $("#grafo"), {
     renderLabels: true,
@@ -357,6 +402,9 @@ function novoSigma(g, opcoes = {}) {
     // entao linhas e caixas tem o mesmo tamanho em qualquer tela; o que nao cabe fica
     // a um arrasto de distancia, como no viewer do Databricks.
     autoRescale: !opcoes.escalaFixa,
+    // na radial tudo escala junto com o zoom (nos, linhas e, no desenho do rotulo, o texto):
+    // afastar vira uma miniatura da mesma cena, sem rotulos invadindo a caixa vizinha
+    itemSizesReference: opcoes.escalaFixa ? "positions" : "screen",
     defaultDrawNodeLabel: desenharRotulo,
     defaultDrawNodeHover: desenharRotuloHover,
   });
@@ -364,8 +412,10 @@ function novoSigma(g, opcoes = {}) {
   prepararCamadaCaixas();
   estado.sigma.on("afterRender", desenharCaixas);
   estado.sigma.on("resize", desenharCaixas);
+  estado.sigma.getCamera().on("updated", (c) => { estado.razaoCamera = c.ratio; });
   // o primeiro render acontece dentro do construtor, antes deste listener existir
   desenharCaixas();
+  ativarArrasto(g);
 
   estado.sigma.on("clickNode", ({ node }) => aoClicarNo(node));
   estado.sigma.on("doubleClickNode", ({ node, event }) => {
@@ -373,7 +423,7 @@ function novoSigma(g, opcoes = {}) {
     if (i !== undefined) { event.preventSigmaDefault(); abrirRadial(i); }
   });
   estado.sigma.on("clickEdge", ({ edge }) => aoClicarAresta(edge));
-  estado.sigma.on("clickStage", () => { limparDestaque(); esconderDica(); });
+  estado.sigma.on("clickStage", () => { if (!estado.arrastou) limparDestaque(); esconderDica(); });
   estado.sigma.on("enterNode", ({ node, event }) => {
     $("#grafo").style.cursor = "pointer";
     const a = g.getNodeAttributes(node);
@@ -388,31 +438,72 @@ function novoSigma(g, opcoes = {}) {
   return estado.sigma;
 }
 
+/**
+ * Arrastar nos reorganiza o espaco, como no viewer do Databricks. Na radial a caixa do
+ * tipo acompanha (os limites sao recalculados a partir dos membros); na exploracao livre
+ * o no arrastado fica fixo para o ForceAtlas2 nao desfazer a mudanca.
+ */
+function ativarArrasto(g) {
+  const s = estado.sigma;
+  let arrastado = null;
+  s.on("downNode", ({ node }) => {
+    arrastado = node;
+    estado.arrastou = false;
+    // sem isto o sigma reenquadra a camera quando o no sai dos limites antigos
+    if (!s.getCustomBBox()) s.setCustomBBox(s.getBBox());
+  });
+  const captor = s.getMouseCaptor();
+  captor.on("mousemovebody", (e) => {
+    if (!arrastado) return;
+    const pos = s.viewportToGraph(e);
+    g.setNodeAttribute(arrastado, "x", pos.x);
+    g.setNodeAttribute(arrastado, "y", pos.y);
+    g.setNodeAttribute(arrastado, "fixed", true);
+    estado.arrastou = true;
+    esconderDica();
+    e.preventSigmaDefault();
+    e.original.preventDefault();
+    e.original.stopPropagation();
+  });
+  const soltar = () => {
+    if (!arrastado) return;
+    arrastado = null;
+    // o clique vem logo depois do mouseup: o atraso impede que soltar conte como clique
+    setTimeout(() => { estado.arrastou = false; }, 0);
+  };
+  captor.on("mouseup", soltar);
+  captor.on("mouseleave", soltar);
+}
+
 /** Rotulo com fundo ("chip"): legivel sobre arestas e em qualquer tema. */
 function desenharRotulo(ctx, data, settings) {
   if (!data.label) return;
-  const tam = settings.labelSize;
+  // na radial o texto acompanha o zoom; abaixo de ~7 px ja nao se le, entao some
+  const escala = estado.escalaFixa ? 1 / estado.razaoCamera : 1;
+  const tam = settings.labelSize * escala;
+  if (tam < 7) return;
   const peso = data.destaque ? "700" : settings.labelWeight;
   ctx.font = `${peso} ${tam}px ${settings.labelFont}`;
   const largura = ctx.measureText(data.label).width;
-  const folga = 4;
+  const folga = 4 * escala;
+  const vao = 8 * escala;
   let x;
   let y;
   if (data.abaixo) {
     x = data.x - largura / 2;
-    y = data.y + data.size + tam + 6;
+    y = data.y + data.size + tam + 6 * escala;
   } else if (data.lado === "esq") {
-    x = data.x - data.size - 8 - largura;
+    x = data.x - data.size - vao - largura;
     y = data.y + tam / 3;
   } else {
-    x = data.x + data.size + 8;
+    x = data.x + data.size + vao;
     y = data.y + tam / 3;
   }
   const claro = tema() === "claro";
   ctx.fillStyle = claro ? "rgba(255,255,255,.92)" : "rgba(14,17,23,.88)";
   ctx.strokeStyle = claro ? "rgba(40,55,80,.18)" : "rgba(160,175,195,.18)";
   ctx.lineWidth = 1;
-  caixaArredondada(ctx, x - folga, y - tam + 1 - folga / 2, largura + folga * 2, tam + folga + 2, 5);
+  caixaArredondada(ctx, x - folga, y - tam + 1 - folga / 2, largura + folga * 2, tam + folga + 2 * escala, 5 * escala);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = claro ? "#121821" : "#eef2f6";
@@ -467,46 +558,75 @@ function desenharCaixas() {
   ctx.clearRect(0, 0, w, h);
   const claro = tema() === "claro";
 
-  estado.caixas.forEach((c) => {
+  const escala = estado.escalaFixa ? 1 / estado.razaoCamera : 1;
+  estado.caixas.forEach((caixa) => {
+    const c = limitesDaCaixa(caixa);
     const a = estado.sigma.graphToViewport({ x: c.x0, y: c.y0 });
     const b = estado.sigma.graphToViewport({ x: c.x1, y: c.y1 });
     const x = Math.min(a.x, b.x);
     const y = Math.min(a.y, b.y);
     const largura = Math.abs(b.x - a.x);
     const altura = Math.abs(b.y - a.y);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = hexComAlfa(c.cor, claro ? 0.07 : 0.09);
-    ctx.strokeStyle = hexComAlfa(c.cor, claro ? 0.55 : 0.5);
+    const cor = caixa.cor;
+    ctx.fillStyle = hexComAlfa(cor, claro ? 0.07 : 0.09);
+    ctx.strokeStyle = hexComAlfa(cor, claro ? 0.55 : 0.5);
     ctx.lineWidth = 1.2;
-    caixaArredondada(ctx, x, y, largura, altura, 8);
+    caixaArredondada(ctx, x, y, largura, altura, 12 * escala);
     ctx.fill();
     ctx.stroke();
 
-    // titulo da caixa, no texto do tema (a cor fica no marcador ao lado)
-    ctx.font = '700 12.5px "Segoe UI", system-ui, sans-serif';
-    const titulo = c.titulo.toUpperCase();
-    const complemento = c.complemento ? `  ${c.complemento}` : "";
+    // titulo da caixa, no texto do tema (a cor fica no marcador ao lado); escala com o zoom
+    const f1 = 12.5 * escala;
+    const f2 = 12 * escala;
+    if (f1 < 7) return;
+    ctx.font = `700 ${f1}px "Segoe UI", system-ui, sans-serif`;
+    const titulo = caixa.titulo.toUpperCase();
+    const complemento = caixa.complemento ? `  ${caixa.complemento}` : "";
     const lt = ctx.measureText(titulo).width;
-    ctx.font = '500 12px "Segoe UI", system-ui, sans-serif';
+    ctx.font = `500 ${f2}px "Segoe UI", system-ui, sans-serif`;
     const lc = ctx.measureText(complemento).width;
-    const cx = x + 10;
-    const cy = y - 9;
+    const cx = x + 10 * escala;
+    const cy = y - 9 * escala;
     ctx.fillStyle = claro ? "#ffffff" : "#151a23";
-    ctx.strokeStyle = hexComAlfa(c.cor, 0.6);
-    caixaArredondada(ctx, cx - 6, cy - 14, lt + lc + 30, 22, 6);
+    ctx.strokeStyle = hexComAlfa(cor, 0.6);
+    caixaArredondada(ctx, cx - 6 * escala, cy - 14 * escala, lt + lc + 30 * escala, 22 * escala, 8 * escala);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = c.cor;
+    ctx.fillStyle = cor;
     ctx.beginPath();
-    ctx.arc(cx + 4, cy - 3, 4.5, 0, Math.PI * 2);
+    ctx.arc(cx + 4 * escala, cy - 3 * escala, 4.5 * escala, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = claro ? "#121821" : "#eef2f6";
-    ctx.font = '700 12.5px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(titulo, cx + 14, cy + 1);
+    ctx.font = `700 ${f1}px "Segoe UI", system-ui, sans-serif`;
+    ctx.fillText(titulo, cx + 14 * escala, cy + escala);
     ctx.fillStyle = claro ? "#3f4a58" : "#b3bfcc";
-    ctx.font = '500 12px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(complemento, cx + 14 + lt, cy + 1);
+    ctx.font = `500 ${f2}px "Segoe UI", system-ui, sans-serif`;
+    ctx.fillText(complemento, cx + 14 * escala + lt, cy + escala);
   });
+}
+
+/**
+ * Limites da caixa a partir das posicoes atuais dos membros: se o usuario arrasta um no,
+ * a caixa cresce para continuar em volta dele. A margem do lado do rotulo e a largura
+ * da coluna, para o texto caber dentro.
+ */
+function limitesDaCaixa(caixa) {
+  const g = estado.grafo;
+  let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity;
+  (caixa.membros || []).forEach((k) => {
+    if (!g.hasNode(k)) return;
+    const n = g.getNodeAttributes(k);
+    minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
+    minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y);
+  });
+  if (minX === Infinity) return caixa;
+  const texto = caixa.largura - caixa.recuo;
+  return {
+    x0: caixa.lado === "esq" ? minX - texto : minX - caixa.recuo,
+    x1: caixa.lado === "esq" ? maxX + caixa.recuo : maxX + texto,
+    y0: maxY + caixa.cabecalho,
+    y1: minY - caixa.linha - 12,
+  };
 }
 
 function hexComAlfa(hex, alfa) {
@@ -679,6 +799,7 @@ function desenharRadial(centro) {
   const CAB = 38;
   const FOLGA = 44;
   const BANDA = 90;
+  const RECUO = 20;
   estado.caixas = [];
 
   const itensDe = (k) => grupos.get(k).slice(0, porGrupo);
@@ -687,12 +808,14 @@ function desenharRadial(centro) {
   const posicionarGrupo = (k, x0, yTopo, lado) => {
     const itens = itensDe(k);
     const cor = k === OUTROS ? NEUTRO[tema()] : corTipo(k);
+    const membros = [];
     itens.forEach((v, j) => {
       const n = dados.nos[v.outro];
       const chave = String(v.outro);
       if (g.hasNode(chave)) return;
+      membros.push(chave);
       g.addNode(chave, {
-        x: lado === "esq" ? x0 + W - 20 : x0 + 20,
+        x: lado === "esq" ? x0 + W - RECUO : x0 + RECUO,
         y: yTopo - CAB - j * H,
         size: Math.max(5, Math.min(10, 4 + Math.sqrt(n.d) * 0.8)),
         color: corDoNo(n),
@@ -711,6 +834,7 @@ function desenharRadial(centro) {
     const total = grupos.get(k).length;
     estado.caixas.push({
       x0, x1: x0 + W, y0: yTopo, y1: yTopo - alturaDe(k), cor,
+      membros, lado, largura: W, recuo: RECUO, cabecalho: CAB, linha: H,
       titulo: k === OUTROS ? "Outros" : TIPOS[k].plural,
       complemento: total > itens.length ? `${itens.length} de ${numero(total)}` : `${total}`,
     });
@@ -755,7 +879,7 @@ function desenharRadial(centro) {
 function enquadrarLegivel(chaveCentro) {
   const cont = $("#grafo");
   let x0 = Infinity; let x1 = -Infinity; let y0 = Infinity; let y1 = -Infinity;
-  estado.caixas.forEach((c) => {
+  estado.caixas.map(limitesDaCaixa).forEach((c) => {
     x0 = Math.min(x0, c.x0); x1 = Math.max(x1, c.x1);
     y0 = Math.min(y0, c.y0, c.y1); y1 = Math.max(y1, c.y0, c.y1) + 30;
   });
@@ -891,35 +1015,33 @@ function pararLayout(separar) {
 /* ---------------- legenda ---------------- */
 
 function desenharLegenda() {
-  const modo = $("#sel-cor").value;
   const cx = $("#legenda");
   cx.innerHTML = "";
-  const itens = [];
-  const dados = estado.dados;
-  const presentes = new Set(dados.nos.map((n) => n.y));
-
-  if (estado.modo === "geral" || modo === "pesquisador") {
-    dados.pesquisadores.slice(0, 8).forEach((p) => itens.push([nomeCurto(p.nome), corPesquisador(p.i), p.nome]));
-    if (estado.modo !== "geral" && dados.pesquisadores.length > 1) {
-      itens.push(["Em 2+ currículos", PONTE[tema()], "Entidade citada por mais de um pesquisador: uma ponte do grupo"]);
+  const g = estado.grafo;
+  if (!g) return;
+  const contagem = new Map();
+  g.forEachNode((_, a) => {
+    let cat;
+    if (a.pesquisador !== undefined) {
+      const p = estado.dados.pesquisadores.find((x) => x.i === a.pesquisador);
+      cat = { chave: `p${a.pesquisador}`, rotulo: nomeCurto(p.nome), cor: corPesquisador(a.pesquisador), ordem: a.pesquisador, explica: p.nome };
+    } else if (a.indice !== undefined) {
+      cat = categoria(estado.dados.nos[a.indice]);
+    } else {
+      return;
     }
-  } else if (modo === "tipo") {
-    ORDEM_TIPOS.filter((t) => presentes.has(t)).forEach((t) => itens.push([TIPOS[t].nome, corTipo(t), TIPOS[t].desc]));
-    if ([...presentes].some((t) => !ORDEM_TIPOS.includes(t))) itens.push(["Outros", NEUTRO[tema()], "Locais e tipos fora da lista"]);
-  } else if (modo === "comunidade") {
-    const porId = new Map((dados.comunidades || []).map((c) => [c.id, c]));
-    estado.corComunidade.forEach((k, id) => {
-      const c = porId.get(id);
-      itens.push([encurta(c ? c.t : `Comunidade ${id}`, 34), corSlot(k), c ? c.t : ""]);
-    });
-    itens.push(["Outras comunidades", NEUTRO[tema()], "Comunidades menores, sem cor própria"]);
-  }
-  itens.forEach(([rotulo, cor, explica]) => {
+    const atual = contagem.get(cat.chave);
+    if (atual) atual.n += 1;
+    else contagem.set(cat.chave, { ...cat, n: 1 });
+  });
+  const mostrarContagem = estado.modo !== "geral";
+  [...contagem.values()].sort((x, y) => x.ordem - y.ordem).forEach((c) => {
     const s = cria("span");
-    if (explica) s.title = explica;
+    s.title = c.explica ? `${c.explica} · ${numero(c.n)} na tela` : `${numero(c.n)} na tela`;
     const i = cria("i");
-    i.style.background = cor;
-    s.append(i, document.createTextNode(rotulo));
+    i.style.background = c.cor;
+    s.append(i, document.createTextNode(c.rotulo));
+    if (mostrarContagem) s.appendChild(cria("b", null, numero(c.n)));
     cx.appendChild(s);
   });
 }
@@ -927,6 +1049,7 @@ function desenharLegenda() {
 /* ---------------- selecao e detalhes ---------------- */
 
 function aoClicarNo(chave) {
+  if (estado.arrastou) return;
   const a = estado.grafo.getNodeAttributes(chave);
   if (a.pesquisador !== undefined) {
     irParaPesquisador(a.pesquisador);
@@ -1093,7 +1216,7 @@ function mostrarDica(evento, titulo, texto) {
   dica.innerHTML = `${titulo ? `<strong>${escapa(titulo)}</strong>` : ""}${texto ? `<span>${escapa(texto)}</span>` : ""}`;
   dica.hidden = false;
   const palco = $(".palco").getBoundingClientRect();
-  const topo = 52;
+  const topo = 0;
   let x = evento.x + 16;
   let y = evento.y + topo + 16;
   const w = dica.offsetWidth;
@@ -1345,6 +1468,12 @@ function ligarEventos() {
   abrirLegenda(window.innerHeight > 620 && window.innerWidth > 900);
   botaoLegenda.addEventListener("click", () => abrirLegenda(legenda.classList.contains("fechada")));
 
+  $("#btn-voltar").addEventListener("click", voltar);
+  document.addEventListener("keydown", (e) => {
+    if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); voltar(); }
+  });
+  ligarDivisores();
+
   $("#btn-conceitos").addEventListener("click", () => $("#conceitos").showModal());
   $("#btn-fechar-conceitos").addEventListener("click", () => $("#conceitos").close());
   $("#conceitos").addEventListener("click", (e) => { if (e.target.id === "conceitos") $("#conceitos").close(); });
@@ -1370,6 +1499,72 @@ function ligarEventos() {
   // a media query avisa sempre que cruza o limite.
   window.matchMedia("(max-width: 860px)").addEventListener("change", ajustarLayout);
   ajustarLayout();
+}
+
+/**
+ * Divisores entre as colunas: arrastar ajusta a largura (o grafo acompanha); clique duplo
+ * volta ao padrao. A largura escolhida fica guardada so neste navegador.
+ */
+function ligarDivisores() {
+  const raiz = document.documentElement;
+  const limites = {
+    lateral: () => [200, Math.min(560, window.innerWidth * 0.4)],
+    painel: () => [280, window.innerWidth * 0.7],
+  };
+  const guardar = (lado, valor) => {
+    try {
+      if (valor === null) localStorage.removeItem(`largura-${lado}`);
+      else localStorage.setItem(`largura-${lado}`, String(valor));
+    } catch { /* armazenamento indisponivel: segue sem lembrar */ }
+  };
+  ["lateral", "painel"].forEach((lado) => {
+    try {
+      const salvo = Number(localStorage.getItem(`largura-${lado}`));
+      if (salvo) raiz.style.setProperty(`--${lado}`, `${salvo}px`);
+    } catch { /* idem */ }
+  });
+
+  document.querySelectorAll(".divisor").forEach((div) => {
+    const lado = div.dataset.lado;
+    div.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault();
+      div.setPointerCapture(ev.pointerId);
+      div.classList.add("ativo");
+      document.body.classList.add("redimensionando");
+      const corpo = $(".corpo").getBoundingClientRect();
+      let largura = null;
+      const mover = (e) => {
+        const [min, max] = limites[lado]();
+        const bruto = lado === "lateral" ? e.clientX - corpo.left - 8 : corpo.right - 8 - e.clientX;
+        largura = Math.round(Math.max(min, Math.min(max, bruto)));
+        raiz.style.setProperty(`--${lado}`, `${largura}px`);
+      };
+      const parar = () => {
+        div.classList.remove("ativo");
+        document.body.classList.remove("redimensionando");
+        div.removeEventListener("pointermove", mover);
+        div.removeEventListener("pointerup", parar);
+        div.removeEventListener("pointercancel", parar);
+        if (largura !== null) guardar(lado, largura);
+      };
+      div.addEventListener("pointermove", mover);
+      div.addEventListener("pointerup", parar);
+      div.addEventListener("pointercancel", parar);
+    });
+    div.addEventListener("dblclick", () => {
+      raiz.style.removeProperty(`--${lado}`);
+      guardar(lado, null);
+    });
+  });
+
+  // o grafo acompanha qualquer mudanca de tamanho do palco (divisor, painel, janela)
+  if (window.ResizeObserver) {
+    new ResizeObserver(() => {
+      if (!estado.sigma) return;
+      estado.sigma.resize();
+      estado.sigma.refresh();
+    }).observe($("#grafo"));
+  }
 }
 
 function sugerir(texto) {
