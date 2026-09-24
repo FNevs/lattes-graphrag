@@ -39,9 +39,9 @@ refinada — três visões (geral, radial por tipo, livre), nós arrastáveis, c
 textos completos, colunas redimensionáveis. Detalhes, armadilhas e pendências em
 `docs/SITE-VISUALIZADOR.md`.
 
-**Próxima ação:** (1) resposta do usuário à proposta de **tour guiado** (seção 7 do
-`SITE-VISUALIZADOR.md`); (2) consultas fixas sobre o V2 (~US$ 9, confirmar antes);
-(3) resolução de entidades — a pendência técnica mais relevante (seção 16).
+**Próxima ação:** (1) consultas fixas sobre o V2 (~US$ 9, confirmar antes);
+(2) resolução de entidades — a pendência técnica mais relevante (seção 16). Tour guiado,
+animação de entrada e painel no estilo Databricks feitos em 23/09/2026.
 
 ---
 

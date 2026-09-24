@@ -64,7 +64,8 @@ do GraphRAG). Nenhum dos dois é dependência do site.
 |---|---|
 | `site/index.html` | estrutura, glossário (`<dialog id="conceitos">`) |
 | `site/estilos.css` | tema escuro/claro por variáveis, layout em cartões, responsivo |
-| `site/app.js` | estado, navegação, três visões, cores, legenda, arrasto, divisores |
+| `site/app.js` | estado, navegação, três visões, cores, legenda, arrasto, divisores, animação de entrada |
+| `site/tour.js` | tour guiado (12 passos) e menu do botão **?** |
 | `site/vendor/` | graphology, graphology-library (ForceAtlas2, noverlap), sigma.js v3 |
 | `site/icone-*.png`, `favicon.ico` | ícone do projeto (gerado da imagem enviada pelo usuário) |
 
@@ -129,12 +130,37 @@ segurança para daltonismo: não reordenar, não gerar uma 9ª cor.**
   (`limitesDaCaixa`), então arrastar um nó estica a caixa.
 - **Arrasto de nós** em todas as visões (`ativarArrasto`); o nó arrastado fica `fixed` para o
   ForceAtlas2; o clique que termina um arrasto é ignorado.
+- **Arrasto da caixa inteira** na radial: pegar na área vazia da caixa ou no título leva
+  todos os membros juntos (as linhas acompanham), como no Databricks (`caixaEm` faz o teste
+  de clique, incluindo o chip do título). Clicar num nó continua movendo só o nó; fora das
+  caixas o arrasto move a câmera. Cursor "mão" sobre as caixas.
+- **Barras de rolagem discretas** (classe `.rolagem`, `ligarRolagens`): finas, recuadas da
+  borda e dos cantos arredondados, invisíveis até o mouse se mover sobre o painel ou a lista
+  rolar; somem ~1,2 s depois, esmaecendo em 4 degraus (`data-rolagem`). Os deslizantes da
+  lateral usam trilha e botão no tom do tema.
 - **Rótulos com fundo ("chip")** desenhados por `desenharRotulo`; encurtados a 30 caracteres
   na radial (texto completo na dica e no painel).
 - **Divisores arrastáveis** entre as colunas; larguras em `localStorage`
   (`largura-lateral`, `largura-painel`); clique duplo volta ao padrão.
 - **Responsivo:** ≤ 1100 px o painel vira gaveta; ≤ 860 px a lateral também, o seletor de
   cor migra para a lateral e os divisores somem; ≤ 620 px esconde botões secundários.
+- **Animação de entrada** (`animarEntrada`), só ao navegar (não ao filtrar nem ao
+  redimensionar): os nós saem do centro em cascata (~0,7 s), as caixas crescem junto e
+  aparecem aos poucos. Arrastar durante a animação a encerra na hora. Aba oculta ou
+  `prefers-reduced-motion` → vai direto ao estado final.
+- **Painel de detalhes no estilo Databricks:** cartões de métrica (conexões, menções, tipos
+  vizinhos), cartões **Vizinhos por tipo** (cor do tipo, contagem, % dos vizinhos, pontes,
+  até 8 nomes clicáveis) e a lista completa em "Todas as relações" (recolhida). Os blocos
+  entram em sequência (`animarPainel`). Não usar o peso da aresta como "força": o GraphRAG
+  soma os pesos de relações repetidas (passa de 10).
+- **Tour guiado** (`site/tour.js`, aprovado em 23/09/2026): o **?** abre um menu com
+  "Tour guiado" e "Conceitos". Não bloqueia a página (sem escurecer): contorno laranja no
+  alvo e balão com contador, Pular, ‹ e Próximo; setas e Esc no teclado. Abre sozinho só na
+  1ª visita (`localStorage` `tour-visto`, por origem — porta 8777 e 8778 contam separado).
+  12 passos: grafo, métricas, versão, pesquisadores, visão geral, rede de uma pessoa (abre a
+  radial do pesquisador mais conectado), Voltar, cor, tipos, painel, exploração livre, **?**.
+  Alvo grande → balão dentro dele no canto; alvo do cabeçalho → balão abaixo; no celular
+  abre a gaveta certa; alvo invisível → balão centralizado embaixo.
 
 ---
 
@@ -152,21 +178,16 @@ segurança para daltonismo: não reordenar, não gerar uma 9ª cor.**
 | exportar uma versão sumia com as outras | `versoes.json` sobrescrito | exportador mescla o índice |
 | descrições cortadas no painel | exportador limitava a 400/300 caracteres | exporta o texto completo |
 | heredoc longo quebra no Bash do Windows | limite/aspas do shell | gravar o script em arquivo `.py` e executar |
+| barra de rolagem não esmaecia | o Chrome não anima nem repinta `::-webkit-scrollbar-thumb` quando só uma variável CSS muda | degraus de opacidade por atributo; degraus ímpares mudam a largura em 0,02 px para forçar a recriação da barra |
 
 ---
 
 ## 7. Pendências e ideias
 
-1. **Tour guiado (proposta, aguardando aprovação do usuário).** O **?** vira menu com
-   "Tour guiado" e "Conceitos". Destaque com o resto escurecido, balão com Anterior /
-   Próximo / Pular, teclado (setas, Esc), abre sozinho só na 1ª visita, sem biblioteca
-   externa. Passos: (1) o que é o grafo; (2) métricas do topo; (3) seletor de versão;
-   (4) visão geral — "clique numa linha"; (5) um pesquisador → radial, arrastar, Voltar;
-   (6) cor + legenda, pontes; (7) painel: detalhes, texto, comunidades, consultas;
-   (8) exploração livre; (9) botão ?.
+1. ~~Tour guiado~~ — feito em 23/09/2026 (ver seção 5).
 2. **Consultas fixas** (~US$ 9 estimados): rodar uma vez por versão (basic/local, nunca
    `global` ao vivo) e gravar `site/dados/<versao>.consultas.json`. A aba já existe.
-3. Arrastar **a caixa inteira** pelo título (hoje só nós).
+3. ~~Arrastar a caixa inteira~~ — feito em 23/09/2026.
 4. Arrasto por **toque** no celular (hoje só mouse).
 5. Refletir a **resolução de entidades** quando existir (variantes de nome: Eduardo tem 15,
    Hugo 10 — ver seção 16 do registro).
