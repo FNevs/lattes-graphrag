@@ -22,6 +22,7 @@ Evidências brutas (scripts de diagnóstico, logs, simulações): `runs/_evidenc
 | 3 | 8 XMLs do NPAI (V2) | ✅ | `runs/v2-npai/` | US$ 17,76 |
 | 4 | validação cruzada com o banco SIMCC | **BLOQUEADO** (20/09) | — | — |
 | 5 | 20–30 currículos do `db.dump` (V3) | **BLOQUEADO** (20/09) | — | — |
+| — | página de visualização (`site/`) | ✅ (refinos contínuos) | `site/` + `docs/SITE-VISUALIZADOR.md` | US$ 0,00 |
 | — | consultas fixas para o site | pendente | — | ~US$ 9 (est.) |
 | — | consultas avulsas de demonstração (19/09) | ✅ | `runs/*/consultas/` | US$ 0,02 |
 
@@ -33,8 +34,14 @@ visualização.
 **Gasto acumulado: US$ 24,79 de US$ 100.** Falta o custo das consultas fixas do site
 (~US$ 9 estimados), o que fecharia em ~US$ 34.
 
-**Próxima ação:** consultas fixas sobre o V2 e a página de visualização (seções 9 e 14);
-resolução de entidades é a pendência técnica mais relevante (ver seção 16).
+**Estado em 23/09/2026:** V2 indexado (`runs/v2-npai/`) e página de visualização pronta e
+refinada — três visões (geral, radial por tipo, livre), nós arrastáveis, cores validadas,
+textos completos, colunas redimensionáveis. Detalhes, armadilhas e pendências em
+`docs/SITE-VISUALIZADOR.md`.
+
+**Próxima ação:** (1) resposta do usuário à proposta de **tour guiado** (seção 7 do
+`SITE-VISUALIZADOR.md`); (2) consultas fixas sobre o V2 (~US$ 9, confirmar antes);
+(3) resolução de entidades — a pendência técnica mais relevante (seção 16).
 
 ---
 
@@ -776,6 +783,12 @@ Local e tipos inválidos em "Outros". Por comunidade: as 7 maiores do nível 0 (
 correspondem às linhas de pesquisa de cada titular) e o resto em "Outras". Antes, a paleta
 de 10 cores repetia em ciclo e uma entidade compartilhada herdava a cor do primeiro
 pesquisador em ordem alfabética.
+
+**Refinos de 23/09/2026** (detalhe em `docs/SITE-VISUALIZADOR.md`): texto completo das
+descrições (o exportador cortava 31% das de entidade e 11% das de relação), nós arrastáveis,
+radial em escala 1:1 que encolhe por inteiro no zoom, botão Voltar no lugar do caminho,
+legenda só com o que está na tela, colunas redimensionáveis, layout em cartões arredondados,
+linhas mais escuras no tema claro e ícone do projeto.
 
 **Legibilidade:** rótulos com fundo ("chip") e 13 px, fontes-base maiores, nomes de tipo em
 português, glossário ("?") com todos os termos (entidade, relação, grau, menções,
