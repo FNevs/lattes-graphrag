@@ -145,6 +145,7 @@ async function iniciar() {
   sel.value = inicial.versao;
   ligarEventos();
   await carregarVersao(inicial.versao);
+  talvezIniciarTour();
 }
 
 async function carregarVersao(nome) {
@@ -327,6 +328,7 @@ function mostrarGeral() {
   marcarPesquisadorAtivo(null);
   mostrarFoco(null);
   desenharGeral();
+  animarEntrada({ x: 0, y: 0 });
   detalhesGeral();
 }
 
@@ -337,6 +339,8 @@ function mostrarRadial(indice, pesquisador) {
   estado.foco = indice;
   mostrarFoco(estado.dados.nos[indice]);
   desenharRadial(indice);
+  const c = estado.grafo.hasNode(String(indice)) ? estado.grafo.getNodeAttributes(String(indice)) : { x: 0, y: 0 };
+  animarEntrada({ x: c.x, y: c.y });
   selecionarNo(indice, false);
 }
 
@@ -426,16 +430,76 @@ function novoSigma(g, opcoes = {}) {
   estado.sigma.on("clickStage", () => { if (!estado.arrastou) limparDestaque(); esconderDica(); });
   estado.sigma.on("enterNode", ({ node, event }) => {
     $("#grafo").style.cursor = "pointer";
+    $("#grafo").classList.remove("sobre-caixa");
+    estado.sobreNo = true;
     const a = g.getNodeAttributes(node);
     mostrarDica(event, a.titulo || a.label, a.subtitulo);
   });
-  estado.sigma.on("leaveNode", () => { $("#grafo").style.cursor = "default"; esconderDica(); });
+  estado.sigma.on("leaveNode", () => {
+    $("#grafo").style.cursor = "";
+    estado.sobreNo = false;
+    esconderDica();
+  });
   estado.sigma.on("enterEdge", ({ edge, event }) => {
     const a = g.getEdgeAttributes(edge);
     if (a.dica) mostrarDica(event, a.dicaTitulo, a.dica);
   });
   estado.sigma.on("leaveEdge", esconderDica);
   return estado.sigma;
+}
+
+/**
+ * Animacao de entrada (so ao navegar, nao ao filtrar ou redimensionar): os nos saem do
+ * centro em cascata, dos mais proximos para os mais distantes, e as caixas crescem junto
+ * (os limites vem das posicoes dos membros) enquanto aparecem aos poucos.
+ */
+function animarEntrada(origem, duracao = 700) {
+  const s = estado.sigma;
+  const g = estado.grafo;
+  estado.entrada = 1;
+  if (!s || !g || document.hidden || !g.order) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // sem isto o sigma reenquadra a camera a cada quadro, porque o grafo "encolhe" no inicio
+  if (!s.getCustomBBox()) s.setCustomBBox(s.getBBox());
+  const alvos = [];
+  let maxDist = 1;
+  g.forEachNode((k, a) => {
+    const dist = Math.hypot(a.x - origem.x, a.y - origem.y);
+    maxDist = Math.max(maxDist, dist);
+    alvos.push({ k, x: a.x, y: a.y, dist });
+  });
+  const id = (estado.idEntrada = (estado.idEntrada || 0) + 1);
+  const t0 = performance.now();
+  const ATRASO = 0.3; // fracao da duracao usada para escalonar a cascata
+  const aplicar = (t) => {
+    alvos.forEach((a) => {
+      const inicio = ATRASO * (a.dist / maxDist);
+      const u = Math.min(1, Math.max(0, (t - inicio) / (1 - ATRASO)));
+      const e = 1 - (1 - u) ** 3;
+      g.mergeNodeAttributes(a.k, { x: origem.x + (a.x - origem.x) * e, y: origem.y + (a.y - origem.y) * e });
+    });
+    estado.entrada = Math.min(1, t * 1.4);
+  };
+  const terminar = () => {
+    if (estado.idEntrada !== id) return;
+    estado.idEntrada += 1;
+    if (estado.sigma === s) aplicar(1);
+    estado.entrada = 1;
+    estado.terminarEntrada = null;
+  };
+  // arrastar durante a animacao encerra a animacao na hora
+  estado.terminarEntrada = terminar;
+  const quadro = (agora) => {
+    if (estado.idEntrada !== id || estado.sigma !== s) return;
+    const t = Math.min(1, (agora - t0) / duracao);
+    aplicar(t);
+    if (t < 1) requestAnimationFrame(quadro);
+    else terminar();
+  };
+  aplicar(0);
+  requestAnimationFrame(quadro);
+  // requestAnimationFrame para em aba oculta: garante o estado final mesmo assim
+  setTimeout(terminar, duracao + 400);
 }
 
 /**
@@ -447,14 +511,56 @@ function ativarArrasto(g) {
   const s = estado.sigma;
   let arrastado = null;
   s.on("downNode", ({ node }) => {
+    if (estado.terminarEntrada) estado.terminarEntrada();
     arrastado = node;
     estado.arrastou = false;
     // sem isto o sigma reenquadra a camera quando o no sai dos limites antigos
     if (!s.getCustomBBox()) s.setCustomBBox(s.getBBox());
   });
   const captor = s.getMouseCaptor();
+  // caixa inteira (so na radial): pega na area vazia ou no titulo e leva os membros junto,
+  // como as entidades no viewer do Databricks. O downNode dispara antes deste mousedown,
+  // entao clicar num no continua arrastando so o no.
+  let caixaMovida = null;
+  captor.on("mousedown", (e) => {
+    if (arrastado || !estado.caixas.length) return;
+    const caixa = caixaEm(e);
+    if (!caixa) return;
+    if (estado.terminarEntrada) estado.terminarEntrada();
+    const inicio = s.viewportToGraph(e);
+    caixaMovida = {
+      inicio,
+      membros: caixa.membros.filter((k) => g.hasNode(k)).map((k) => ({
+        k, x: g.getNodeAttribute(k, "x"), y: g.getNodeAttribute(k, "y"),
+      })),
+    };
+    estado.arrastou = false;
+    if (!s.getCustomBBox()) s.setCustomBBox(s.getBBox());
+    document.body.classList.add("movendo-caixa");
+  });
   captor.on("mousemovebody", (e) => {
-    if (!arrastado) return;
+    if (caixaMovida) {
+      const pos = s.viewportToGraph(e);
+      const dx = pos.x - caixaMovida.inicio.x;
+      const dy = pos.y - caixaMovida.inicio.y;
+      caixaMovida.membros.forEach((m) => {
+        g.setNodeAttribute(m.k, "x", m.x + dx);
+        g.setNodeAttribute(m.k, "y", m.y + dy);
+      });
+      estado.arrastou = true;
+      esconderDica();
+      e.preventSigmaDefault();
+      e.original.preventDefault();
+      e.original.stopPropagation();
+      return;
+    }
+    if (!arrastado) {
+      // cursor de "pegar" sobre as caixas (o do no, "pointer", tem prioridade)
+      if (estado.caixas.length && !estado.sobreNo) {
+        $("#grafo").classList.toggle("sobre-caixa", !!caixaEm(e));
+      }
+      return;
+    }
     const pos = s.viewportToGraph(e);
     g.setNodeAttribute(arrastado, "x", pos.x);
     g.setNodeAttribute(arrastado, "y", pos.y);
@@ -466,13 +572,38 @@ function ativarArrasto(g) {
     e.original.stopPropagation();
   });
   const soltar = () => {
+    if (caixaMovida) {
+      caixaMovida = null;
+      document.body.classList.remove("movendo-caixa");
+      setTimeout(() => { estado.arrastou = false; }, 0);
+      return;
+    }
     if (!arrastado) return;
     arrastado = null;
     // o clique vem logo depois do mouseup: o atraso impede que soltar conte como clique
     setTimeout(() => { estado.arrastou = false; }, 0);
   };
   captor.on("mouseup", soltar);
-  captor.on("mouseleave", soltar);
+  captor.on("mouseleave", () => { soltar(); $("#grafo").classList.remove("sobre-caixa"); });
+}
+
+/**
+ * Caixa sob o ponto da tela (coordenadas do viewport), incluindo o titulo que fica acima
+ * dela. A ultima desenhada ganha, porque e a que esta por cima.
+ */
+function caixaEm(ponto) {
+  const escala = estado.escalaFixa ? 1 / estado.razaoCamera : 1;
+  for (let i = estado.caixas.length - 1; i >= 0; i -= 1) {
+    const c = limitesDaCaixa(estado.caixas[i]);
+    const a = estado.sigma.graphToViewport({ x: c.x0, y: c.y0 });
+    const b = estado.sigma.graphToViewport({ x: c.x1, y: c.y1 });
+    const x0 = Math.min(a.x, b.x);
+    const x1 = Math.max(a.x, b.x);
+    const y0 = Math.min(a.y, b.y) - 23 * escala; // o chip do titulo sobe 23 px
+    const y1 = Math.max(a.y, b.y);
+    if (ponto.x >= x0 && ponto.x <= x1 && ponto.y >= y0 && ponto.y <= y1) return estado.caixas[i];
+  }
+  return null;
 }
 
 /** Rotulo com fundo ("chip"): legivel sobre arestas e em qualquer tema. */
@@ -559,6 +690,7 @@ function desenharCaixas() {
   const claro = tema() === "claro";
 
   const escala = estado.escalaFixa ? 1 / estado.razaoCamera : 1;
+  ctx.globalAlpha = estado.entrada ?? 1;
   estado.caixas.forEach((caixa) => {
     const c = limitesDaCaixa(caixa);
     const a = estado.sigma.graphToViewport({ x: c.x0, y: c.y0 });
@@ -721,6 +853,7 @@ function detalhesGeral() {
   if (!dados.rede_titulares.length) ul.appendChild(cria("li", null, "nenhum par com produções em comum"));
   bloco.appendChild(ul);
   cx.appendChild(bloco);
+  animarPainel(cx);
 }
 
 function detalhesPar(k) {
@@ -756,6 +889,7 @@ function detalhesPar(k) {
   });
   bloco.appendChild(ul);
   cx.appendChild(bloco);
+  animarPainel(cx);
 }
 
 /* ---------------- visao radial: foco no centro, vizinhos em caixas ---------------- */
@@ -1084,12 +1218,6 @@ function selecionarNo(indice, destacarNoGrafo) {
   const tipo = cria("span", "etiqueta forte", nomeTipo(n.y));
   tipo.title = TIPOS[n.y] ? TIPOS[n.y].desc : "Tipo fora da lista pedida ao modelo";
   etq.appendChild(tipo);
-  const cnx = cria("span", "etiqueta", `${numero(n.d)} conexões`);
-  cnx.title = "Grau: quantas relações a entidade tem no grafo";
-  etq.appendChild(cnx);
-  const men = cria("span", "etiqueta", `${numero(n.f)} menções`);
-  men.title = "Em quantos trechos do texto a entidade apareceu";
-  etq.appendChild(men);
   if (n.c !== undefined) {
     const com = (dados.comunidades || []).find((c) => c.id === n.c && c.n === 0);
     const b = cria("span", "etiqueta clicavel", `comunidade: ${encurta(com ? com.t : String(n.c), 30)}`);
@@ -1098,6 +1226,21 @@ function selecionarNo(indice, destacarNoGrafo) {
     etq.appendChild(b);
   }
   cx.appendChild(etq);
+
+  const viz = vizinhosDe(indice).sort((x, y) => y.peso - x.peso);
+  const metricas = cria("div", "metricas-no");
+  const metrica = (valor, rotulo, dica) => {
+    const m = cria("div", "metrica-no");
+    m.title = dica;
+    m.appendChild(cria("strong", null, numero(valor)));
+    m.appendChild(cria("span", null, rotulo));
+    metricas.appendChild(m);
+  };
+  metrica(n.d, n.d === 1 ? "conexão" : "conexões", "Grau: quantas relações a entidade tem no grafo");
+  metrica(n.f, n.f === 1 ? "menção" : "menções", "Em quantos trechos do texto a entidade apareceu");
+  const tiposViz = new Set(viz.map((v) => grupoDoTipo(dados.nos[v.outro].y)));
+  metrica(tiposViz.size, tiposViz.size === 1 ? "tipo vizinho" : "tipos vizinhos", "De quantos tipos são as entidades ligadas a esta");
+  cx.appendChild(metricas);
 
   if (estado.modo !== "radial" || estado.foco !== indice) {
     const botoes = cria("div", "botoes-painel");
@@ -1130,9 +1273,11 @@ function selecionarNo(indice, destacarNoGrafo) {
     cx.appendChild(bloco);
   }
 
-  const viz = vizinhosDe(indice).sort((x, y) => y.peso - x.peso);
-  const bloco = cria("div", "bloco");
-  bloco.appendChild(cria("h3", null, `Relações (${numero(viz.length)})`));
+  if (viz.length) cx.appendChild(cartoesPorTipo(viz));
+
+  const bloco = cria("details", "bloco todas-relacoes");
+  bloco.appendChild(cria("summary", null, `Todas as relações (${numero(viz.length)})`));
+  if (viz.length <= 6) bloco.open = true;
   const ul = cria("ul", "relacoes");
   viz.slice(0, 50).forEach((v) => {
     const alvo = dados.nos[v.outro];
@@ -1148,6 +1293,62 @@ function selecionarNo(indice, destacarNoGrafo) {
   if (!viz.length) ul.appendChild(cria("li", null, "entidade isolada: o texto não a liga a nada"));
   bloco.appendChild(ul);
   cx.appendChild(bloco);
+  animarPainel(cx);
+}
+
+/**
+ * Vizinhos agrupados por tipo, em cartoes (como os subdominios do viewer do Databricks):
+ * cor do tipo na borda, contagem, fatia dos vizinhos, pontes e os nomes mais ligados como
+ * etiquetas clicaveis.
+ */
+function cartoesPorTipo(viz) {
+  const dados = estado.dados;
+  const grupos = new Map();
+  viz.forEach((v) => {
+    const k = grupoDoTipo(dados.nos[v.outro].y);
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(v);
+  });
+  const bloco = cria("div", "bloco");
+  bloco.appendChild(cria("h3", null, "Vizinhos por tipo"));
+  [...grupos.entries()].sort((a, b) => b[1].length - a[1].length).forEach(([k, lista]) => {
+    const cor = k === OUTROS ? NEUTRO[tema()] : corTipo(k);
+    const cartao = cria("div", "cartao-tipo");
+    cartao.style.setProperty("--cor-tipo", cor);
+    const topo = cria("div", "cartao-topo");
+    const nome = cria("span", "cartao-nome", k === OUTROS ? "Outros" : TIPOS[k].plural);
+    topo.appendChild(nome);
+    topo.appendChild(cria("span", "cartao-conta", numero(lista.length)));
+    cartao.appendChild(topo);
+    // (o peso das arestas nao serve aqui: o GraphRAG soma os pesos de relacoes repetidas)
+    const fatia = Math.round((100 * lista.length) / viz.length);
+    const pontes = lista.filter((v) => (dados.nos[v.outro].p || []).length > 1).length;
+    cartao.appendChild(cria("div", "cartao-sub",
+      `${fatia < 1 ? "<1" : fatia}% dos vizinhos` + (pontes ? ` · ${numero(pontes)} em 2+ currículos` : "")));
+    const chips = cria("div", "cartao-chips");
+    const MAX = 8;
+    lista.slice(0, MAX).forEach((v) => {
+      const alvo = dados.nos[v.outro];
+      const c = cria("button", "chip", encurta(alvo.t, 34));
+      c.title = `${alvo.t}\n${v.desc || ""}\nClique para centralizar`;
+      c.addEventListener("click", () => abrirRadial(v.outro));
+      chips.appendChild(c);
+    });
+    if (lista.length > MAX) chips.appendChild(cria("span", "chip mais", `+${numero(lista.length - MAX)}`));
+    cartao.appendChild(chips);
+    bloco.appendChild(cartao);
+  });
+  return bloco;
+}
+
+/** Os blocos do painel entram em sequencia (sobem e aparecem), como no Databricks. */
+function animarPainel(cx) {
+  [...cx.children].forEach((el, k) => {
+    el.classList.remove("entra");
+    el.style.setProperty("--ordem", Math.min(k, 8));
+    void el.offsetWidth;
+    el.classList.add("entra");
+  });
 }
 
 function selecionarAresta(idx) {
@@ -1179,6 +1380,7 @@ function selecionarAresta(idx) {
   });
   bloco.appendChild(ul);
   cx.appendChild(bloco);
+  animarPainel(cx);
 }
 
 function destacar(indice) {
@@ -1473,8 +1675,9 @@ function ligarEventos() {
     if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); voltar(); }
   });
   ligarDivisores();
+  ligarRolagens();
 
-  $("#btn-conceitos").addEventListener("click", () => $("#conceitos").showModal());
+  ligarMenuAjuda();
   $("#btn-fechar-conceitos").addEventListener("click", () => $("#conceitos").close());
   $("#conceitos").addEventListener("click", (e) => { if (e.target.id === "conceitos") $("#conceitos").close(); });
 
@@ -1499,6 +1702,45 @@ function ligarEventos() {
   // a media query avisa sempre que cruza o limite.
   window.matchMedia("(max-width: 860px)").addEventListener("change", ajustarLayout);
   ajustarLayout();
+}
+
+/**
+ * Barras de rolagem como no VS Code: aparecem quando o mouse se move sobre o painel ou
+ * quando ele rola, e somem sozinhas depois de um instante parado (ver .rolagem no CSS).
+ */
+function ligarRolagens() {
+  const ESPERA = 1200;
+  const DEGRAU = 70;
+  document.querySelectorAll(".rolagem").forEach((el) => {
+    let timer = null;
+    const nivel = () => Number(el.dataset.rolagem || 0);
+    // o Chrome nao anima a cor da barra: esmaece trocando o nivel de opacidade (4 -> 0)
+    const esconder = () => {
+      // enquanto o polegar esta sendo arrastado, continua visivel
+      if (el.matches(":active")) { timer = setTimeout(esconder, ESPERA); return; }
+      const n = nivel() - 1;
+      if (n <= 0) { delete el.dataset.rolagem; return; }
+      el.dataset.rolagem = n;
+      timer = setTimeout(esconder, DEGRAU);
+    };
+    const acender = () => {
+      const n = nivel() + 1;
+      el.dataset.rolagem = Math.min(4, n);
+      timer = setTimeout(n >= 4 ? esconder : acender, n >= 4 ? ESPERA : DEGRAU / 2);
+    };
+    const mostrar = () => {
+      if (el.scrollHeight <= el.clientHeight + 1) return;
+      clearTimeout(timer);
+      if (nivel() >= 4) timer = setTimeout(esconder, ESPERA);
+      else acender();
+    };
+    el.addEventListener("mousemove", mostrar, { passive: true });
+    el.addEventListener("scroll", mostrar, { passive: true });
+    el.addEventListener("mouseleave", () => {
+      clearTimeout(timer);
+      timer = setTimeout(esconder, 400);
+    });
+  });
 }
 
 /**

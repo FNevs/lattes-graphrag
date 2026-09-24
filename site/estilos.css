@@ -627,3 +627,255 @@ body[data-modo="geral"] .legenda, body[data-modo="geral"] .legenda-botao { displ
   .botoes #btn-png, .botoes #btn-tema { display: none; }
   .modo { padding: 6px 9px; font-size: 13px; }
 }
+
+/* ---------- barras de rolagem discretas (como no VS Code) ----------
+   Finas, dentro do limite do painel (a trilha tem margem para nao encostar nos cantos
+   arredondados) e invisiveis ate o mouse se mover sobre o painel ou a lista rolar; somem
+   sozinhas depois de ~1,2 s parado. O Chrome nao anima as cores de ::-webkit-scrollbar
+   (nem repinta quando so uma variavel CSS muda), entao o esmaecer e feito em degraus:
+   ligarRolagens troca data-rolagem de 4 ate 0. */
+
+.rolagem { overflow-x: hidden; }
+.rolagem::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+.rolagem::-webkit-scrollbar-track { background: transparent; margin: 12px 0; }
+.rolagem::-webkit-scrollbar-corner { background: transparent; }
+.rolagem::-webkit-scrollbar-thumb {
+  /* borda transparente + background-clip: o polegar fica fino e afastado da borda */
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background-color: transparent;
+  background-clip: padding-box;
+  min-height: 36px;
+}
+/* degraus impares com 0,02 px a mais: mudar a largura obriga o Chrome a recriar a barra,
+   senao ele as vezes guarda a cor antiga do polegar ate o mouse passar por cima dela */
+.rolagem[data-rolagem="1"]::-webkit-scrollbar,
+.rolagem[data-rolagem="3"]::-webkit-scrollbar { width: 10.02px; }
+.rolagem[data-rolagem="1"]::-webkit-scrollbar-thumb { background-color: rgba(160, 175, 195, .10); }
+.rolagem[data-rolagem="2"]::-webkit-scrollbar-thumb { background-color: rgba(160, 175, 195, .20); }
+.rolagem[data-rolagem="3"]::-webkit-scrollbar-thumb { background-color: rgba(160, 175, 195, .30); }
+.rolagem[data-rolagem="4"]::-webkit-scrollbar-thumb { background-color: rgba(160, 175, 195, .40); }
+.rolagem[data-rolagem="4"]::-webkit-scrollbar-thumb:hover,
+.rolagem[data-rolagem="4"]::-webkit-scrollbar-thumb:active { border-width: 2px; background-color: rgba(160, 175, 195, .65); }
+body[data-tema="claro"] .rolagem[data-rolagem="1"]::-webkit-scrollbar-thumb { background-color: rgba(40, 55, 80, .08); }
+body[data-tema="claro"] .rolagem[data-rolagem="2"]::-webkit-scrollbar-thumb { background-color: rgba(40, 55, 80, .16); }
+body[data-tema="claro"] .rolagem[data-rolagem="3"]::-webkit-scrollbar-thumb { background-color: rgba(40, 55, 80, .24); }
+body[data-tema="claro"] .rolagem[data-rolagem="4"]::-webkit-scrollbar-thumb { background-color: rgba(40, 55, 80, .32); }
+body[data-tema="claro"] .rolagem[data-rolagem="4"]::-webkit-scrollbar-thumb:hover,
+body[data-tema="claro"] .rolagem[data-rolagem="4"]::-webkit-scrollbar-thumb:active { background-color: rgba(40, 55, 80, .55); }
+
+/* Firefox nao tem ::-webkit-scrollbar: fina, aparece so com o mouse em cima */
+@supports not selector(::-webkit-scrollbar) {
+  .rolagem { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .rolagem:hover { scrollbar-color: rgba(160, 175, 195, .4) transparent; }
+}
+
+/* deslizantes no tom do tema (o nativo aparecia branco no escuro) */
+.deslizante input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  margin: 6px 0 0;
+  background: transparent;
+  cursor: pointer;
+}
+.deslizante input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--fundo-3);
+  box-shadow: inset 0 0 0 1px var(--borda);
+}
+.deslizante input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--realce);
+  border: 2px solid var(--fundo-2);
+  box-shadow: 0 0 0 1px var(--realce);
+}
+.deslizante input[type="range"]::-moz-range-track { height: 4px; border-radius: 4px; background: var(--fundo-3); }
+.deslizante input[type="range"]::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%; background: var(--realce); border: 2px solid var(--fundo-2);
+}
+.deslizante input[type="range"]:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; border-radius: 4px; }
+
+/* caixas da visao radial: arrastaveis pela area vazia ou pelo titulo */
+#grafo.sobre-caixa { cursor: grab; }
+body.movendo-caixa, body.movendo-caixa #grafo { cursor: grabbing !important; user-select: none; }
+
+/* ---------- painel de detalhes: metricas e vizinhos por tipo (como no Databricks) ---------- */
+
+.metricas-no { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 14px; }
+.metrica-no {
+  padding: 8px 10px;
+  border-radius: var(--raio-m);
+  background: var(--fundo-3);
+  border: 1px solid var(--borda);
+  cursor: help;
+  min-width: 0;
+}
+.metrica-no strong { display: block; font-size: 17px; line-height: 1.2; color: var(--texto); }
+.metrica-no span { display: block; font-size: 11.5px; color: var(--texto-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cartao-tipo {
+  padding: 10px 11px 11px;
+  margin-bottom: 8px;
+  border-radius: var(--raio-m);
+  background: var(--fundo-3);
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--cor-tipo);
+}
+.cartao-topo { display: flex; align-items: center; gap: 8px; }
+.cartao-nome { flex: 1; font-weight: 600; font-size: 14px; }
+.cartao-nome::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--cor-tipo);
+  vertical-align: 1px;
+}
+.cartao-conta {
+  min-width: 26px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--texto);
+  background: color-mix(in srgb, var(--cor-tipo) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cor-tipo) 55%, transparent);
+}
+.cartao-sub { font-size: 12px; color: var(--texto-3); margin: 2px 0 8px; }
+.cartao-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip {
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font: 12px/1.5 "Segoe UI", system-ui, sans-serif;
+  color: var(--texto);
+  background: color-mix(in srgb, var(--cor-tipo) 12%, var(--fundo-2));
+  border: 1px solid color-mix(in srgb, var(--cor-tipo) 45%, var(--borda));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+button.chip:hover { border-color: var(--foco); }
+button.chip:focus-visible { outline: 2px solid var(--foco); outline-offset: 1px; }
+.chip.mais { cursor: default; color: var(--texto-2); background: transparent; }
+
+.todas-relacoes summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--texto-2);
+  margin-bottom: 7px;
+  list-style-position: inside;
+}
+.todas-relacoes summary:hover { color: var(--texto); }
+
+/* blocos do painel entram em sequencia */
+@keyframes entra-bloco {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.aba-conteudo > .entra { animation: entra-bloco .32s ease-out both; animation-delay: calc(var(--ordem, 0) * 45ms); }
+@media (prefers-reduced-motion: reduce) {
+  .aba-conteudo > .entra { animation: none; }
+}
+
+/* ---------- menu do "?" ---------- */
+
+.ajuda { position: relative; }
+.menu-ajuda {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 230px;
+  padding: 5px;
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-m);
+  box-shadow: var(--sombra);
+  z-index: 40;
+}
+.menu-ajuda[hidden] { display: none; }
+.menu-ajuda button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto);
+  cursor: pointer;
+  font: inherit;
+}
+.menu-ajuda button:hover, .menu-ajuda button:focus-visible { background: var(--fundo-3); outline: none; }
+.menu-ajuda strong { display: block; font-size: 13.5px; font-weight: 600; }
+.menu-ajuda small { display: block; font-size: 12px; color: var(--texto-2); }
+
+/* ---------- tour guiado (nao bloqueia: sem fundo escurecido) ---------- */
+
+.tour-anel {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  border: 2px solid var(--realce);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--realce) 18%, transparent);
+  transition: left .28s ease, top .28s ease, width .28s ease, height .28s ease;
+}
+.tour-anel[hidden] { display: none; }
+
+.tour-balao {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  z-index: 51;
+  width: min(310px, calc(100vw - 24px));
+  padding: 14px 16px 12px;
+  background: var(--fundo-2);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-m);
+  box-shadow: var(--sombra);
+  transition: left .28s ease, top .28s ease;
+}
+.tour-titulo { margin: 0 0 6px; font-size: 14.5px; font-weight: 700; }
+.tour-texto { margin: 0 0 12px; font-size: 13.5px; line-height: 1.5; color: var(--texto-2); }
+.tour-rodape { display: flex; align-items: center; gap: 6px; }
+.tour-conta { flex: 1; font-size: 12px; color: var(--texto-3); font-variant-numeric: tabular-nums; }
+.tour-rodape button {
+  border: 1px solid var(--borda);
+  background: var(--fundo-3);
+  color: var(--texto);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font: 600 13px/1.4 "Segoe UI", system-ui, sans-serif;
+  cursor: pointer;
+}
+.tour-rodape button[hidden] { display: none; }
+.tour-rodape .tour-pular { border-color: transparent; background: none; color: var(--texto-2); font-weight: 500; }
+.tour-rodape .tour-pular:hover { color: var(--texto); }
+.tour-rodape .tour-anterior { padding: 5px 10px; }
+.tour-rodape .tour-proximo { background: var(--realce); border-color: var(--realce); color: #16110f; }
+.tour-rodape button:hover { border-color: var(--realce); }
+.tour-rodape button:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
+
+@keyframes tour-entra {
+  from { opacity: 0; transform: translateY(4px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+.tour-balao.tour-entra { animation: tour-entra .22s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .tour-balao, .tour-anel { transition: none; }
+  .tour-balao.tour-entra { animation: none; }
+}

@@ -43,14 +43,21 @@
       <button class="icone" id="btn-ajustar" title="Enquadrar tudo" aria-label="Enquadrar">⤢</button>
       <button class="icone" id="btn-png" title="Baixar a imagem do grafo" aria-label="Baixar imagem">⤓</button>
       <button class="icone" id="btn-tema" title="Tema claro ou escuro" aria-label="Alternar tema">◐</button>
-      <button class="icone destaque" id="btn-conceitos" title="O que significa cada termo" aria-label="Conceitos">?</button>
+      <div class="ajuda">
+        <button class="icone destaque" id="btn-conceitos" title="Tour guiado e glossário" aria-label="Ajuda"
+                aria-haspopup="menu" aria-expanded="false">?</button>
+        <div class="menu-ajuda" id="menu-ajuda" role="menu" hidden>
+          <button type="button" role="menuitem" id="menu-tour"><strong>Tour guiado</strong><small>12 passos pela página</small></button>
+          <button type="button" role="menuitem" id="menu-conceitos"><strong>Conceitos</strong><small>o que significa cada termo</small></button>
+        </div>
+      </div>
     </div>
     <button class="icone apenas-estreito" id="btn-painel" title="Detalhes" aria-label="Abrir detalhes">ℹ</button>
   </div>
 </header>
 
 <main class="corpo">
-  <aside class="lateral" id="lateral">
+  <aside class="lateral rolagem" id="lateral">
     <div class="modos" role="tablist" aria-label="Modo de visualização">
       <button class="modo ativo" data-modo="geral" role="tab" title="Os pesquisadores e as produções em comum; clique para aprofundar">Visão geral</button>
       <button class="modo" data-modo="livre" role="tab" title="O grafo inteiro, com filtros">Exploração livre</button>
@@ -59,7 +66,7 @@
     <div class="busca">
       <input type="search" id="busca" placeholder="Buscar pessoa, produção, projeto…" autocomplete="off"
              aria-label="Buscar entidade">
-      <ul id="sugestoes" class="sugestoes" hidden></ul>
+      <ul id="sugestoes" class="sugestoes rolagem" hidden></ul>
     </div>
 
     <section class="grupo">
@@ -132,16 +139,16 @@
   <div class="divisor" data-lado="painel" role="separator" aria-orientation="vertical"
        title="Arraste para ajustar a largura · clique duplo volta ao padrão"></div>
 
-  <aside class="painel" id="painel">
+  <aside class="painel rolagem" id="painel">
     <nav class="abas">
       <button class="aba ativa" data-aba="detalhes">Detalhes</button>
       <button class="aba" data-aba="comunidades">Comunidades</button>
       <button class="aba" data-aba="consultas">Consultas</button>
       <button class="icone apenas-estreito" id="btn-fechar-painel" aria-label="Fechar">×</button>
     </nav>
-    <div class="aba-conteudo ativa" id="aba-detalhes"></div>
-    <div class="aba-conteudo" id="aba-comunidades"></div>
-    <div class="aba-conteudo" id="aba-consultas"></div>
+    <div class="aba-conteudo rolagem ativa" id="aba-detalhes"></div>
+    <div class="aba-conteudo rolagem" id="aba-comunidades"></div>
+    <div class="aba-conteudo rolagem" id="aba-consultas"></div>
   </aside>
 </main>
 
@@ -150,7 +157,7 @@
     <h2 id="titulo-conceitos">Conceitos</h2>
     <button class="icone" id="btn-fechar-conceitos" aria-label="Fechar">×</button>
   </header>
-  <div class="conceitos-corpo">
+  <div class="conceitos-corpo rolagem">
     <p class="introducao">Este grafo foi gerado pelo <strong>GraphRAG</strong> (Microsoft) a partir do texto dos
       currículos Lattes. Um modelo de linguagem leu cada trecho e anotou <em>o que existe</em> (entidades) e
       <em>como as coisas se ligam</em> (relações). Nada aqui é digitado à mão: tudo foi extraído do texto.</p>
@@ -219,5 +226,6 @@
 <script src="vendor/graphology-library.min.js"></script>
 <script src="vendor/sigma.min.js"></script>
 <script src="app.js"></script>
+<script src="tour.js"></script>
 </body>
 </html>
