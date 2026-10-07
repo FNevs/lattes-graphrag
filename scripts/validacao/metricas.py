@@ -135,7 +135,9 @@ def avaliar(entidades: pd.DataFrame, relacoes: pd.DataFrame, registros: list[Reg
         esperadas = Counter()
         achadas = Counter()
         for reg in registros:
-            if reg.nucleo is None:
+            # linhas de perfil (area de atuacao, resumo) apoiam a precisao, mas nao tem uma
+            # ligacao principal esperada: ficam fora da cobertura
+            if reg.nucleo is None or reg.familia == "perfil":
                 continue
             ents_nucleo = {e for e, sc in por_reg_item.get((reg.rid, reg.nucleo), {}).items() if ok(sc)}
             for i, item in enumerate(reg.itens):
@@ -158,7 +160,7 @@ def avaliar(entidades: pd.DataFrame, relacoes: pd.DataFrame, registros: list[Reg
         nucleos_cobertos = Counter()
         fragmentos = []
         for reg in registros:
-            if reg.nucleo is None:
+            if reg.nucleo is None or reg.familia == "perfil":
                 continue
             nucleos[reg.familia] += 1
             ents = [e for e, sc in por_reg_item.get((reg.rid, reg.nucleo), {}).items() if ok(sc)]

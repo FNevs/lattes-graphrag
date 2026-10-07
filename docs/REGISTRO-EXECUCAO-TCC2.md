@@ -31,7 +31,7 @@ próximo passo nem trabalho futuro; o usuário decidirá depois o que fazer com 
 descartá-lo. O trabalho segue com os **8 currículos do `lattesNAPI/`**, até a página de
 visualização.
 
-**Gasto acumulado: US$ 24,79 de US$ 100.** Falta o custo das consultas fixas do site
+**Gasto acumulado: US$ 26,88 de US$ 100** (US$ 24,79 até 23/09 + US$ 2,09 da camada 2 da validação, 07/10). Falta o custo das consultas fixas do site
 (~US$ 9 estimados), o que fecharia em ~US$ 34.
 
 **Estado em 23/09/2026:** V2 indexado (`runs/v2-npai/`) e página de visualização pronta e
@@ -222,7 +222,9 @@ que não é pessoa, organização ou lugar.
 | passo 3 tentativa 1, abortada por RateLimit (01h–02h UTC de 21/09) | 8.905.419 entrada + 3.448.018 saída → **US$ 9,08** | — |
 | passo 3 etapa 1, grafo do V2 (18:50–19:12 UTC) | 2.689.061 entrada + 706.274 saída → **US$ 2,21** | — |
 | passo 3 etapa 2, relatórios + embeddings (19:13–19:43 UTC) | 6.512.505 entrada + 2.365.769 saída + 4.073.273 embedding → **US$ 6,47** | — |
-| **total** | **US$ 24,79** | |
+| validação, camada 2: piloto de consultas (19:19–19:21 UTC de 07/10) | 473.619 entrada + 30.026 saída → **US$ 0,24** | — |
+| validação, camada 2: lote de 17 perguntas (19:22–19:30 UTC de 07/10) | 3.714.968 entrada + 217.692 saída → **US$ 1,85** | — |
+| **total** | **US$ 26,88** | |
 
 As 8 reexecuções de diagnóstico do passo 1 vieram 99,9% do cache e custaram centavos.
 
@@ -819,12 +821,12 @@ orientador–orientando...) que o grafo traz.
 
 | versão | entidades | relações | proveniência (2 pontas no trecho) | precisão | cobertura | F1 | sem fonte |
 |---|---|---|---|---|---|---|---|
-| V0 (TCC1) | 1.368 | 1.403 | 93,2% | 0,554 | 0,066 | 0,119 | 44 |
-| V1-base (NFKC) | 1.501 | 1.890 | 96,9% | 0,792 | 0,157 | 0,263 | 18 |
-| V1-NFC | 1.501 | 1.906 | 97,5% | 0,740 | 0,125 | 0,214 | 27 |
-| V1-tuned | 1.583 | 1.389 | 99,4% | 0,838 | 0,324 | 0,468 | 10 |
-| V1-formatoE | 1.422 | 2.719 | 96,8% | 0,944 | 0,678 | 0,789 | 32 |
-| **V2 (8 currículos)** | 8.664 | 18.746 | 98,5% | **0,969** | 0,554 | 0,705 | 156 |
+| V0 (TCC1) | 1.368 | 1.403 | 93,2% | 0,545 | 0,085 | 0,147 | 44 |
+| V1-base (NFKC) | 1.501 | 1.890 | 96,9% | 0,790 | 0,187 | 0,303 | 18 |
+| V1-NFC | 1.501 | 1.906 | 97,5% | 0,737 | 0,151 | 0,250 | 27 |
+| V1-tuned | 1.583 | 1.389 | 99,4% | 0,837 | 0,366 | 0,510 | 10 |
+| V1-formatoE | 1.422 | 2.719 | 96,8% | 0,955 | 0,763 | 0,849 | 32 |
+| **V2 (8 currículos)** | 8.664 | 18.746 | 98,5% | **0,969** | 0,602 | 0,743 | 156 |
 
 Leitura: o **formato E** (um registro por linha) é a mudança decisiva — a precisão sai de
 0,74–0,84 para 0,94 e a cobertura quintuplica. No formato antigo cada registro se espalhava
@@ -836,15 +838,15 @@ palavras-chave e áreas quase não viram relação (cobertura de 4–20% nessas 
 
 ### V2 em detalhe
 
-- **Sensibilidade ao limiar**: precisão 0,954 (exato) / 0,969 (95) / 0,969 (90) / 0,969
-  (85); F1 de 0,649 a 0,720. A conclusão não depende do limiar.
+- **Sensibilidade ao limiar**: precisão 0,954 (exato) / 0,968 (95) / 0,969 (90) / 0,969
+  (85); F1 de 0,685 a 0,758. A conclusão não depende do limiar.
 - **Proveniência**: 98,2% das entidades aparecem no trecho de onde saíram (88,0% literais;
   o resto com as palavras fora de ordem, quase sempre nomes abreviados); 98,5% das relações
   têm as duas pontas no trecho. 156 entidades sem fonte (lista em `sem_fonte.txt`).
-- **Tipo correto**: PERSON 99,7%, PUBLICATION 98,8%, EVENT 96,8%, SOFTWARE 90,1%,
-  ORGANIZATION 89,1%, COURSE 87,7%, KNOWLEDGE_AREA 86,4%, GEO 83,7%, PROJECT 83,2%.
-- **Registros que viraram entidade**: projetos e softwares 100%, orientações 96,9%,
-  publicações 93,5%, vínculos 88,5%, bancas 85,0%, eventos 73,5%.
+- **Tipo correto**: PERSON 99,9%, PUBLICATION 98,8%, EVENT 97,2%, COURSE 92,1%,
+  ORGANIZATION 91,9%, SOFTWARE 90,1%, KNOWLEDGE_AREA 87,3%, GEO 85,6%, PROJECT 83,2%.
+- **Registros que viraram entidade**: projetos, softwares e formação 100%, vínculos 99,7%,
+  orientações 98,0%, eventos 94,2%, publicações 93,5%, bancas 85,0%, produção técnica 82,5%.
 - **Fragmentação dos titulares** (entidades PERSON distintas para a mesma pessoa): Aloisio
   27, Hugo 20, Eduardo 14, José Garcia 13, Raphael 11, Maria Fernanda 8, Paulo Jorge 4,
   Mayara 2. Substitui a contagem da seção 16 (15/11/10…), que só via grafias próximas.
@@ -867,3 +869,72 @@ palavras-chave e áreas quase não viram relação (cobertura de 4–20% nessas 
 | "A. Nascimento" casava com "Marcelo Antônio do Nascimento" | inicial comparada com qualquer palavra; citação curta usada ao contrário | o prenome (ou a inicial) casa com o primeiro nome; o sentido inverso só para nomes completos |
 | "Matheus Guimarães Andrade Tanure" não casava com "Matheus G. A. Tanure" | compatibilidade só num sentido | nomes completos comparados nos dois sentidos |
 | entidades citadas no título do registro ("Bahia", "HTLV") sem suporte | busca só no texto livre | o texto do registro inclui títulos e demais itens (menos pessoas) |
+| entidades da área de atuação e do resumo "não verificáveis" | o gabarito só lia registros com dados básicos, mas o extrator também escreve linhas de perfil | elementos com atributos úteis viram registros de "perfil" (só para a precisão, fora da cobertura) |
+| códigos numéricos ("029100000000") e "Brasil" como instituição | atributos `CODIGO-INSTITUICAO`, `PAIS-...` classificados pelo nome | mesmos prefixos ignorados do extrator; valor sem letra é descartado; país e cidade antes de instituição |
+
+---
+
+## 19. Validação — camada 2: as consultas (07/10/2026)
+
+Código em `scripts/validacao/` (`gerar_perguntas.py`, `executar_consultas.py`,
+`avaliar_consultas.py`, `juiz_consultas.py`, `medir_custo.py`); perguntas, respostas e
+avaliações em `runs/v2-npai/validacao/consultas/` (ignorado pelo Git).
+
+**Perguntas (19, geradas do XML, com gabarito):** 8 dado-local (softwares, projetos,
+orientador do doutorado, vínculos, orientandos), 3 atividade-local (parceiros no grupo,
+coautores em comum), 4 dado-global (áreas, instituições, palavras-chave e pares mais
+frequentes — "asserções") e 4 atividade-global (parcerias, evolução, oportunidades,
+parecer — sem gabarito, só para o juiz). Classes do BenchmarkQED (Microsoft, 2025).
+
+**Métodos:** objetivas em `basic`, `local` (nível 2) e **sem contexto** (o modelo sozinho,
+piso de comparação); globais em `global` (nível 1), `local` e `basic`. Respostas objetivas
+pedidas em lista (`response_type`), o que permite conferir cada item sem outro LLM.
+
+**Custo real (medidor):** piloto (q04 e q12, 19:19–19:21 UTC) 473.619 + 30.026 tokens =
+**US$ 0,24**; lote (17 perguntas, 19:22–19:30 UTC) 3.714.968 + 217.692 = **US$ 1,85**.
+Camada 2 até aqui: **US$ 2,09** (estimativa: ~US$ 1,85 sem o juiz). 57 respostas, 0 erros.
+
+### Avaliação determinística contra o XML (custo zero)
+
+| classe | método | cobertura | precisão | F1 | itens citados | corretos | parciais | alucinados |
+|---|---|---|---|---|---|---|---|---|
+| dado-local (8) | basic | 0,676 | 0,814 | 0,731 | 62 | 48 | 13 | 1 |
+| dado-local (8) | local | 0,414 | 0,571 | 0,443 | 34 | 24 | 9 | 1 |
+| dado-local (8) | sem contexto | 0,000 | 0,000 | 0,000 | 27 | 0 | 4 | 23 |
+| atividade-local (3) | basic | 0,246 | 0,166 | 0,137 | 55 | 8 | 47 | 0 |
+| atividade-local (3) | local | 0,135 | 0,333 | 0,164 | 15 | 5 | 10 | 0 |
+| atividade-local (3) | sem contexto | 0,024 | 0,000 | 0,000 | 29 | 0 | 3 | 26 |
+
+| dado-global (4): asserções do XML citadas | global | local | basic |
+|---|---|---|---|
+| cobertura média | **0,675** | 0,383 | 0,342 |
+
+Categorias de Pires et al. (2024): *correto* (está no gabarito), *parcial* (entidade real
+dos currículos que não responde à pergunta), *alucinado* (não existe em nenhum currículo).
+
+Leitura:
+- **Sem contexto o modelo inventa**: 49 de 56 itens não existem em nenhum currículo
+  (ex.: o orientador de doutorado de uma titular). Com o GraphRAG, 2 alucinados em 96 itens
+  das perguntas objetivas — a recuperação ancora a resposta.
+- **Para listar fatos de um pesquisador, `basic` supera `local`** (F1 0,73 × 0,44): a busca
+  local monta o contexto pelas 10 entidades mais próximas e devolve listas curtas.
+- **Para perguntas sobre o grupo inteiro, `global` cobre quase o dobro das asserções**
+  (0,68 × 0,38 e 0,34), o resultado esperado por Edge et al. (2024).
+- **"Pesquisadores do grupo" não existe no grafo**: nas perguntas de parceiros, os métodos
+  listam coautores frequentes de fora do grupo (47 "parciais" no basic). O grafo não marca
+  quem são os 8 titulares — limitação a registrar (e candidata a melhoria: um atributo ou
+  comunidade "titular").
+
+### Armadilhas (não repetir)
+
+| sintoma | causa | solução |
+|---|---|---|
+| `graphrag query --data` lia o índice vetorial errado | `--data` só troca `output_storage`; o LanceDB vem de `vector_store.db_uri` | API Python com `cli_overrides` para os dois |
+| siglas de software ("SRMS") contadas como alucinadas | o título no XML é "SRMS: Software para…" e o avaliador cortava no ':' | compara também a linha inteira e aceita sigla no início do título |
+
+### Pendente
+
+Juiz LLM (`juiz_consultas.py`): Likert nas 4 dimensões de Jia et al. (2024) e comparação par a
+par nas globais (Edge et al., 2024). Precisa de um deployment `gpt-4.1` (juiz diferente do
+gerador) — aguardando autorização do usuário. Estimativa: ~US$ 1,10 com `gpt-4.1`; ~US$ 0,20
+com `gpt-4.1-mini` (mesmo modelo do gerador, viés registrado).

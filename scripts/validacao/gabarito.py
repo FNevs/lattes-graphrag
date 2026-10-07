@@ -19,6 +19,7 @@ from extract_lattes_text import (  # noqa: E402
     ELEMENTOS_OMITIDOS,
     ITENS,
     PESSOAS,
+    PREFIXOS_IGNORADOS,
     TAMANHO_TEXTO_LONGO,
     _eh_registro,
     normalizar_texto,
@@ -109,6 +110,8 @@ def familia_do_registro(tag: str) -> str:
 def classe_do_atributo(atributo: str) -> str | None:
     """Classe do item para um atributo do XML, ou None se nao nomeia nada util."""
 
+    if atributo.startswith(PREFIXOS_IGNORADOS):
+        return None  # codigos, sequencias, flags, DOI... (os mesmos que o extrator descarta)
     if atributo in ATRIBUTOS_PESSOA:
         return "pessoa"
     if "PERIODICO" in atributo or "ANAIS" in atributo or "REVISTA" in atributo or "JORNAL" in atributo:
@@ -125,10 +128,10 @@ def classe_do_atributo(atributo: str) -> str | None:
         return "area"
     if atributo.startswith("PALAVRA-CHAVE"):
         return "palavra"
+    if atributo.startswith(("CIDADE", "PAIS", "LOCAL", "UF")) or "PAIS" in atributo or "CIDADE" in atributo:
+        return "local"
     if any(p in atributo for p in ("INSTITUICAO", "ORGAO", "AGENCIA", "EDITORA", "EMPRESA", "UNIVERSIDADE", "UNIDADE")):
         return "organizacao"
-    if atributo.startswith(("CIDADE", "PAIS", "LOCAL")):
-        return "local"
     return None
 
 
@@ -228,6 +231,21 @@ def ler_curriculo(xml_path: Path, catalogo: Catalogo, registros: list[Registro])
             for filho, pai_filho in aninhados:
                 visitar(filho, pai_filho, contexto)
             return
+        # elemento que nao e registro mas tem atributos uteis (area de atuacao, resumo do
+        # curriculo, idioma, premio...): o extrator tambem o escreveu numa linha propria
+        if elemento.tag != "DADOS-GERAIS" and any(
+            classe_do_atributo(a) or len(v) > TAMANHO_TEXTO_LONGO or a.startswith(TEXTO_LIVRE)
+            for a, v in elemento.attrib.items()
+        ):
+            reg = Registro(len(registros), cv, elemento.tag, "perfil")
+            registros.append(reg)
+            livres_perfil: list[str] = []
+            atributos(elemento, reg, livres_perfil, basicos=True)
+            for item in contexto:
+                if not any(i.chave == item.chave and i.classe == item.classe for i in reg.itens):
+                    reg.itens.append(item)
+            reg.texto_livre = chave(" ".join(livres_perfil + [i.valor for i in reg.itens if i.classe != "pessoa"]))
+            definir_nucleo(reg)
         novo = list(contexto)
         if elemento.tag == "DADOS-GERAIS" and titular_nome:
             novo.append(titular_item)
@@ -272,7 +290,7 @@ def ler_curriculo(xml_path: Path, catalogo: Catalogo, registros: list[Registro])
                 livres.append(valor)
                 continue
             classe = classe_do_atributo(attr)
-            if classe is None:
+            if classe is None or not any(c.isalpha() for c in valor):
                 continue
             item = Item(valor, chave(valor), classe)
             if classe == "pessoa":
