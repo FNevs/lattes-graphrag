@@ -39,7 +39,9 @@ refinada — três visões (geral, radial por tipo, livre), nós arrastáveis, c
 textos completos, colunas redimensionáveis. Detalhes, armadilhas e pendências em
 `docs/SITE-VISUALIZADOR.md`.
 
-**Próxima ação:** (1) consultas fixas sobre o V2 (~US$ 9, confirmar antes);
+**Próxima ação (07/10/2026):** validação automática contra o XML, conforme
+`docs/PLANO-VALIDACAO-TCC2.md` (camada 1 a custo zero; camada 2, consultas, ~US$ 4 estimados,
+confirmar antes). Antes: (1) consultas fixas sobre o V2 (~US$ 9, confirmar antes);
 (2) resolução de entidades — a pendência técnica mais relevante (seção 16). Tour guiado,
 animação de entrada e painel no estilo Databricks feitos em 23/09/2026.
 
