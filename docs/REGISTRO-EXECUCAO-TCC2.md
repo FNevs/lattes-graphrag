@@ -795,3 +795,75 @@ linhas mais escuras no tema claro e ícone do projeto.
 **Legibilidade:** rótulos com fundo ("chip") e 13 px, fontes-base maiores, nomes de tipo em
 português, glossário ("?") com todos os termos (entidade, relação, grau, menções,
 comunidade, nível, relatório, pontes, variantes de nome) e dicas ao passar o mouse.
+
+---
+
+## 18. Validação — camada 1: o grafo contra o XML (07/10/2026, custo zero)
+
+Plano e fundamentação em `docs/PLANO-VALIDACAO-TCC2.md`. Código em `scripts/validacao/`;
+saídas em `runs/<versao>/validacao/` e `runs/_validacao/comparacao.md` (ignoradas pelo Git).
+
+```powershell
+.venv\Scripts\python.exe scripts\validacao\validar_grafo.py              # todas as versões (~25 s)
+.venv\Scripts\python.exe -m unittest discover -s scripts\validacao\testes -v
+```
+
+**Critério.** Uma relação é *suportada* quando as duas entidades casam com itens (ou com o
+texto) do **mesmo registro** do XML — o registro foi uma linha do texto lido pelo modelo.
+*Não suportada*: as duas pontas existem no XML, mas nunca no mesmo registro. *Não
+verificável*: alguma ponta não casa com nada do XML. Precisão = suportadas / (suportadas +
+não suportadas). Cobertura = ligações núcleo–item do XML (autor–artigo, integrante–projeto,
+orientador–orientando...) que o grafo traz.
+
+### Comparação entre versões (limiar de semelhança 90)
+
+| versão | entidades | relações | proveniência (2 pontas no trecho) | precisão | cobertura | F1 | sem fonte |
+|---|---|---|---|---|---|---|---|
+| V0 (TCC1) | 1.368 | 1.403 | 93,2% | 0,554 | 0,066 | 0,119 | 44 |
+| V1-base (NFKC) | 1.501 | 1.890 | 96,9% | 0,792 | 0,157 | 0,263 | 18 |
+| V1-NFC | 1.501 | 1.906 | 97,5% | 0,740 | 0,125 | 0,214 | 27 |
+| V1-tuned | 1.583 | 1.389 | 99,4% | 0,838 | 0,324 | 0,468 | 10 |
+| V1-formatoE | 1.422 | 2.719 | 96,8% | 0,944 | 0,678 | 0,789 | 32 |
+| **V2 (8 currículos)** | 8.664 | 18.746 | 98,5% | **0,969** | 0,554 | 0,705 | 156 |
+
+Leitura: o **formato E** (um registro por linha) é a mudança decisiva — a precisão sai de
+0,74–0,84 para 0,94 e a cobertura quintuplica. No formato antigo cada registro se espalhava
+por várias linhas e o modelo ligava itens de registros diferentes (amostra do V0: pessoa
+ligada ao livro errado, participante atribuído ao projeto errado). O V2 mantém a precisão
+com 6× mais texto. A cobertura do V2 é menor que a do formatoE porque as ligações com
+palavras-chave e áreas quase não viram relação (cobertura de 4–20% nessas classes, contra
+86–98% para pessoas em publicações, softwares e orientações).
+
+### V2 em detalhe
+
+- **Sensibilidade ao limiar**: precisão 0,954 (exato) / 0,969 (95) / 0,969 (90) / 0,969
+  (85); F1 de 0,649 a 0,720. A conclusão não depende do limiar.
+- **Proveniência**: 98,2% das entidades aparecem no trecho de onde saíram (88,0% literais;
+  o resto com as palavras fora de ordem, quase sempre nomes abreviados); 98,5% das relações
+  têm as duas pontas no trecho. 156 entidades sem fonte (lista em `sem_fonte.txt`).
+- **Tipo correto**: PERSON 99,7%, PUBLICATION 98,8%, EVENT 96,8%, SOFTWARE 90,1%,
+  ORGANIZATION 89,1%, COURSE 87,7%, KNOWLEDGE_AREA 86,4%, GEO 83,7%, PROJECT 83,2%.
+- **Registros que viraram entidade**: projetos e softwares 100%, orientações 96,9%,
+  publicações 93,5%, vínculos 88,5%, bancas 85,0%, eventos 73,5%.
+- **Fragmentação dos titulares** (entidades PERSON distintas para a mesma pessoa): Aloisio
+  27, Hugo 20, Eduardo 14, José Garcia 13, Raphael 11, Maria Fernanda 8, Paulo Jorge 4,
+  Mayara 2. Substitui a contagem da seção 16 (15/11/10…), que só via grafias próximas.
+- **Pares de titulares, XML × grafo**: Hugo × Eduardo 162 × 161; Hugo × Aloisio 145 × 102
+  (o grafo perde 43 — fragmentação do Aloisio); José Garcia × Raphael 27 × 42 (o grafo
+  conta a mais).
+- **Não suportadas (538)**: a amostra é de inferência além da fonte ("a UESC fica na
+  Bahia", "o LDLS roda no Windows"), ligações entre registros vizinhos e troca de pessoa
+  (um software do Aloisio Santos Nascimento Filho atribuído a "Aloisio Machado da Silva
+  Filho", embora a própria descrição da relação cite o nome certo).
+- O nome inventado que vazou dos exemplos dos prompts aparece como sem fonte e sem
+  correspondente no XML (teste de regressão).
+
+### Armadilhas (não repetir)
+
+| sintoma | causa | solução |
+|---|---|---|
+| coautores fundidos com um titular ("PAULO FERREIRA" virou Hugo Saba) | **22 autorias** no Lattes trazem o ID do CNPq de uma pessoa e o nome de outra | titulares registrados primeiro; ID só une grafias se o nome for compatível (conflitos contados no relatório) |
+| V0–V1 com precisão um pouco mais baixa que a real | validados contra o XML de 03/2026, mas indexados do de **06/2025** (`input_xml/`) | cada versão usa o XML com a mesma `DATA-ATUALIZACAO` do texto de entrada |
+| "A. Nascimento" casava com "Marcelo Antônio do Nascimento" | inicial comparada com qualquer palavra; citação curta usada ao contrário | o prenome (ou a inicial) casa com o primeiro nome; o sentido inverso só para nomes completos |
+| "Matheus Guimarães Andrade Tanure" não casava com "Matheus G. A. Tanure" | compatibilidade só num sentido | nomes completos comparados nos dois sentidos |
+| entidades citadas no título do registro ("Bahia", "HTLV") sem suporte | busca só no texto livre | o texto do registro inclui títulos e demais itens (menos pessoas) |
