@@ -55,8 +55,13 @@ do GraphRAG). Nenhum dos dois é dependência do site.
   - `coautoria`: `[a, b, n]` — pares de pessoas por produção em comum (≥ 2);
   - `rede_titulares`: `[a, b, n, exemplos]` — só entre os titulares (visão geral).
 - `site/dados/<versao>.relatorios.json` — relatórios completos, carregados só ao abrir um.
-- `site/dados/<versao>.consultas.json` — **ainda não existe** (ver pendências). Formato
-  esperado pela aba Consultas: `[{"pergunta", "metodo", "resposta", "custo"}]`.
+- `site/dados/<versao>.consultas.json` — respostas da camada 2 da validação, exportadas por
+  `scripts/exportar_consultas_site.py runs\<versao>` (custo zero: nada é consultado de novo).
+  Itens `{id, classe, pergunta, metodo, resposta, cobertura?, alucinados?, nota?}`. A aba
+  mostra uma pergunta por cartão, com botões para trocar o método, as notas do juiz e a
+  cobertura do gabarito; o markdown das respostas é formatado (`markdownSimples`) e as
+  citações `[Data: …]` viram uma marca "fontes" com o detalhe ao passar o mouse. Existe só
+  para o V2 (gerado em 07/10/2026).
 
 ### Código
 
@@ -185,8 +190,9 @@ segurança para daltonismo: não reordenar, não gerar uma 9ª cor.**
 ## 7. Pendências e ideias
 
 1. ~~Tour guiado~~ — feito em 23/09/2026 (ver seção 5).
-2. **Consultas fixas** (~US$ 9 estimados): rodar uma vez por versão (basic/local, nunca
-   `global` ao vivo) e gravar `site/dados/<versao>.consultas.json`. A aba já existe.
+2. ~~Consultas fixas~~ — feitas para o V2 em 07/10/2026, como parte da validação
+   (19 perguntas × 3 métodos, US$ 2,45 com o juiz; seção 19 do registro). As versões de 1
+   currículo continuam sem consultas.
 3. ~~Arrastar a caixa inteira~~ — feito em 23/09/2026.
 4. Arrasto por **toque** no celular (hoje só mouse).
 5. Refletir a **resolução de entidades** quando existir (variantes de nome: Eduardo tem 15,

@@ -1515,6 +1515,34 @@ async function abrirComunidade(id) {
 
 /* ---------------- consultas salvas ---------------- */
 
+/**
+ * Markdown basico das respostas do GraphRAG (titulos, negrito, listas), sempre a partir do
+ * texto escapado. As citacoes "[Data: Reports (1, 2)]" viram uma marca discreta: a
+ * proveniencia continua visivel ao passar o mouse, sem poluir a leitura.
+ */
+function markdownSimples(texto) {
+  const linhas = escapa(texto).split(/\r?\n/);
+  const html = [];
+  let lista = false;
+  const fecharLista = () => { if (lista) { html.push("</ul>"); lista = false; } };
+  const inline = (s) => s
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[(?:Data|Dados):([^\]]*)\]/gi, '<span class="fonte" title="Fontes no grafo:$1">fontes</span>');
+  linhas.forEach((bruta) => {
+    const linha = bruta.trim();
+    if (!linha || /^-{3,}$/.test(linha)) { fecharLista(); return; }
+    const titulo = linha.match(/^#{1,6}\s+(.*)$/);
+    const item = linha.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
+    if (titulo) { fecharLista(); html.push(`<h3>${inline(titulo[1])}</h3>`); }
+    else if (item) {
+      if (!lista) { html.push("<ul>"); lista = true; }
+      html.push(`<li>${inline(item[1])}</li>`);
+    } else { fecharLista(); html.push(`<p>${inline(linha)}</p>`); }
+  });
+  fecharLista();
+  return html.join("");
+}
+
 async function desenharConsultas(versao) {
   const cx = $("#aba-consultas");
   cx.innerHTML = '<p class="vazio">carregando…</p>';
@@ -1523,13 +1551,41 @@ async function desenharConsultas(versao) {
     if (!r.ok) throw new Error("sem arquivo");
     const consultas = await r.json();
     cx.innerHTML = "";
+    cx.appendChild(cria("p", "explica",
+      "Respostas geradas uma vez e salvas: cada pergunta foi feita a mais de um método de busca. " +
+      "As notas são de um modelo avaliador (1 a 5) e a cobertura compara a resposta com o XML dos currículos."));
+    // uma pergunta por cartao; os metodos viram botoes que trocam a resposta mostrada
+    const grupos = new Map();
     consultas.forEach((c) => {
-      const bloco = cria("div", "bloco");
-      bloco.appendChild(cria("h3", null, `${c.metodo}${c.custo ? ` · US$ ${c.custo}` : ""}`));
-      bloco.appendChild(cria("h2", "titulo-no", c.pergunta));
+      const k = c.id || c.pergunta;
+      if (!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k).push(c);
+    });
+    grupos.forEach((respostas) => {
+      const bloco = cria("div", "bloco consulta");
+      if (respostas[0].classe) bloco.appendChild(cria("h3", null, respostas[0].classe));
+      bloco.appendChild(cria("h2", "titulo-no", respostas[0].pergunta));
+      const barra = cria("div", "filtro-nivel");
+      const meta = cria("p", "consulta-meta");
       const corpo = cria("div", "relatorio");
-      corpo.innerHTML = `<p>${escapa(c.resposta).replace(/\n{2,}/g, "</p><p>")}</p>`;
-      bloco.appendChild(corpo);
+      const mostrar = (c, botao) => {
+        barra.querySelectorAll("button").forEach((b) => b.classList.toggle("ativo", b === botao));
+        corpo.innerHTML = markdownSimples(c.resposta);
+        const partes = [];
+        if (c.nota) partes.push(`acurácia ${c.nota.acuracia}/5 · completude ${c.nota.completude}/5`);
+        if (c.cobertura !== undefined) partes.push(`cobertura do gabarito ${Math.round(c.cobertura * 100)}%`);
+        if (c.alucinados) partes.push(`${c.alucinados} ${c.alucinados === 1 ? "item inexistente" : "itens inexistentes"} nos currículos`);
+        meta.textContent = partes.join(" · ");
+        meta.hidden = !partes.length;
+      };
+      respostas.forEach((c, i) => {
+        const b = cria("button", null, c.metodo);
+        b.type = "button";
+        b.addEventListener("click", () => mostrar(c, b));
+        barra.appendChild(b);
+        if (i === 0) mostrar(c, b);
+      });
+      bloco.append(barra, meta, corpo);
       cx.appendChild(bloco);
     });
   } catch {

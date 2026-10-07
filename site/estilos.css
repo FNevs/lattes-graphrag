@@ -879,3 +879,21 @@ button.chip:focus-visible { outline: 2px solid var(--foco); outline-offset: 1px;
   .tour-balao, .tour-anel { transition: none; }
   .tour-balao.tour-entra { animation: none; }
 }
+
+/* ---------- aba Consultas: uma pergunta por cartao ---------- */
+
+.consulta { padding-bottom: 14px; border-bottom: 1px solid var(--borda); }
+.consulta:last-child { border-bottom: 0; }
+.consulta-meta { margin: -4px 0 10px; font-size: 12px; color: var(--texto-3); }
+.consulta-meta[hidden] { display: none; }
+.relatorio ul { margin: 0 0 9px; padding-left: 18px; }
+.relatorio li { margin-bottom: 4px; }
+.relatorio .fonte {
+  font-size: 10.5px;
+  padding: 0 5px;
+  border-radius: 6px;
+  color: var(--texto-3);
+  border: 1px solid var(--borda);
+  cursor: help;
+  white-space: nowrap;
+}

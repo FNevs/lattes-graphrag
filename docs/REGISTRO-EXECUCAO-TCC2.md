@@ -23,7 +23,7 @@ Evidências brutas (scripts de diagnóstico, logs, simulações): `runs/_evidenc
 | 4 | validação cruzada com o banco SIMCC | **BLOQUEADO** (20/09) | — | — |
 | 5 | 20–30 currículos do `db.dump` (V3) | **BLOQUEADO** (20/09) | — | — |
 | — | página de visualização (`site/`) | ✅ (refinos contínuos) | `site/` + `docs/SITE-VISUALIZADOR.md` | US$ 0,00 |
-| — | consultas fixas para o site | pendente | — | ~US$ 9 (est.) |
+| — | consultas fixas para o site | ✅ (V2, via validação, 07/10) | `site/dados/v2-npai.consultas.json` | incluído na camada 2 |
 | — | consultas avulsas de demonstração (19/09) | ✅ | `runs/*/consultas/` | US$ 0,02 |
 
 **Decisão de 20/09/2026:** tudo que envolve o `db.dump` fica **BLOQUEADO** — não é
