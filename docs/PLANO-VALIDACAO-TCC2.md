@@ -2,7 +2,7 @@
 
 Proposta de 07/10/2026, ainda em discussão com o orientador. **Camada 1 implementada e
 executada em 07/10/2026** (resultados na seção 18 do `REGISTRO-EXECUCAO-TCC2.md`); **camada 2
-executada sem o juiz** (seção 19; US$ 2,09). Substitui a validação manual
+executada, com o juiz `gpt-4.1`** (seção 19; US$ 2,45). Substitui a validação manual
 por amostra (Seção 4.2.2 da monografia) por uma validação **automática da população
 inteira** contra o XML do Lattes, e automatiza a avaliação das consultas (Seções 4.2.3 a
 4.2.5). Pontos vão mudar: este arquivo registra a versão atual do raciocínio e as fontes.

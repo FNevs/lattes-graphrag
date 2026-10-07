@@ -31,7 +31,7 @@ próximo passo nem trabalho futuro; o usuário decidirá depois o que fazer com 
 descartá-lo. O trabalho segue com os **8 currículos do `lattesNAPI/`**, até a página de
 visualização.
 
-**Gasto acumulado: US$ 26,88 de US$ 100** (US$ 24,79 até 23/09 + US$ 2,09 da camada 2 da validação, 07/10). Falta o custo das consultas fixas do site
+**Gasto acumulado: US$ 27,24 de US$ 100** (US$ 24,79 até 23/09 + US$ 2,45 da camada 2 da validação, 07/10). Falta o custo das consultas fixas do site
 (~US$ 9 estimados), o que fecharia em ~US$ 34.
 
 **Estado em 23/09/2026:** V2 indexado (`runs/v2-npai/`) e página de visualização pronta e
@@ -224,7 +224,8 @@ que não é pessoa, organização ou lugar.
 | passo 3 etapa 2, relatórios + embeddings (19:13–19:43 UTC) | 6.512.505 entrada + 2.365.769 saída + 4.073.273 embedding → **US$ 6,47** | — |
 | validação, camada 2: piloto de consultas (19:19–19:21 UTC de 07/10) | 473.619 entrada + 30.026 saída → **US$ 0,24** | — |
 | validação, camada 2: lote de 17 perguntas (19:22–19:30 UTC de 07/10) | 3.714.968 entrada + 217.692 saída → **US$ 1,85** | — |
-| **total** | **US$ 26,88** | |
+| validação, camada 2: juiz `gpt-4.1` (19:38–19:41 UTC de 07/10) | 156.038 entrada + 5.613 saída → **US$ 0,36** | — |
+| **total** | **US$ 27,24** | |
 
 As 8 reexecuções de diagnóstico do passo 1 vieram 99,9% do cache e custaram centavos.
 
@@ -890,9 +891,10 @@ parecer — sem gabarito, só para o juiz). Classes do BenchmarkQED (Microsoft, 
 piso de comparação); globais em `global` (nível 1), `local` e `basic`. Respostas objetivas
 pedidas em lista (`response_type`), o que permite conferir cada item sem outro LLM.
 
-**Custo real (medidor):** piloto (q04 e q12, 19:19–19:21 UTC) 473.619 + 30.026 tokens =
-**US$ 0,24**; lote (17 perguntas, 19:22–19:30 UTC) 3.714.968 + 217.692 = **US$ 1,85**.
-Camada 2 até aqui: **US$ 2,09** (estimativa: ~US$ 1,85 sem o juiz). 57 respostas, 0 erros.
+**Custo real (medidor, conferido com o medidor estabilizado):** respostas (`gpt-4.1-mini`,
+piloto + lote, 19:19–19:30 UTC) 4.218.308 + 251.490 tokens = **US$ 2,09**; juiz (`gpt-4.1`,
+19:38–19:41 UTC) 156.038 + 5.613 = **US$ 0,36** — igual ao que a API devolveu. **Camada 2:
+US$ 2,45** (estimativa do plano: ~US$ 4,00 com margem). 57 respostas, 0 erros.
 
 ### Avaliação determinística contra o XML (custo zero)
 
@@ -932,9 +934,31 @@ Leitura:
 | `graphrag query --data` lia o índice vetorial errado | `--data` só troca `output_storage`; o LanceDB vem de `vector_store.db_uri` | API Python com `cli_overrides` para os dois |
 | siglas de software ("SRMS") contadas como alucinadas | o título no XML é "SRMS: Software para…" e o avaliador cortava no ':' | compara também a linha inteira e aceita sigla no início do título |
 
-### Pendente
+### Juiz LLM (`gpt-4.1`, deployment criado em 07/10 com autorização do usuário)
 
-Juiz LLM (`juiz_consultas.py`): Likert nas 4 dimensões de Jia et al. (2024) e comparação par a
-par nas globais (Edge et al., 2024). Precisa de um deployment `gpt-4.1` (juiz diferente do
-gerador) — aguardando autorização do usuário. Estimativa: ~US$ 1,10 com `gpt-4.1`; ~US$ 0,20
-com `gpt-4.1-mini` (mesmo modelo do gerador, viés registrado).
+Likert 1–5 nas 4 dimensões de Jia et al. (2024); nas perguntas com gabarito, o juiz recebe a
+referência do XML. Juiz diferente do gerador (`gpt-4.1` julgando `gpt-4.1-mini`).
+
+| método | respostas | relevância | acurácia | completude | legibilidade |
+|---|---|---|---|---|---|
+| global | 8 | 4,75 | 4,50 | 4,75 | 5,00 |
+| basic | 19 | 4,47 | 3,58 | 3,63 | 4,79 |
+| local | 19 | 4,32 | 2,95 | 3,16 | 4,74 |
+| sem contexto | 11 | 2,18 | 1,00 | 1,00 | 4,73 |
+
+Separando as perguntas: nas objetivas, acurácia basic 3,27 × local 2,36 × sem contexto 1,00;
+nas globais, global 4,50 × basic 4,00 × local 3,75.
+
+Par a par nas 8 perguntas globais (3 pares × 2 ordens; taxa de vitória):
+
+| método | abrangência | diversidade | empoderamento | relevância |
+|---|---|---|---|---|
+| global | **1,00** | **1,00** | **0,94** | **0,72** |
+| basic | 0,31 | 0,31 | 0,34 | 0,58 |
+| local | 0,19 | 0,19 | 0,22 | 0,20 |
+
+Leitura: o juiz concorda com a avaliação determinística — basic é melhor que local para
+listar fatos, global vence nas perguntas sobre o grupo (todas as comparações de abrangência e
+diversidade, como em Edge et al., 2024), e sem contexto tira 1 em acurácia em todas. A
+legibilidade alta do "sem contexto" (4,73) com acurácia 1,00 mostra por que legibilidade
+sozinha não mede qualidade: o texto inventado é fluente.
