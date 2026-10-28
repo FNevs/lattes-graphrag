@@ -2,7 +2,7 @@
 
 Metodos por classe de pergunta (docs/PLANO-VALIDACAO-TCC2.md, secao 4):
 - dado-local e atividade-local: basic (RAG vetorial puro), local, sem contexto (o modelo
-  sozinho, piso de comparacao);
+  sozinho, piso de comparacao) e bm25 (baseline lexical, ver bm25.py);
 - dado-global e atividade-global: global (nivel de comunidade 1), local, basic.
 
 Cada resposta vai para runs/<versao>/validacao/consultas/respostas/<id>_<metodo>.json. Uma
@@ -27,6 +27,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from bm25 import BM25, responder_bm25
+
 RAIZ = Path(__file__).resolve().parents[2]
 NIVEL_GLOBAL = 1  # ~US$ 0,20 por pergunta no V2 (nivel 2 chega a ~US$ 0,70)
 NIVEL_LOCAL = 2  # padrao da CLI
@@ -34,8 +36,8 @@ FORMATO_LISTA = ("Lista em português, com um item por linha, cada linha começa
                  "primeiro o nome do item; sem introdução nem conclusão")
 FORMATO_TEXTO = "Vários parágrafos em português"
 METODOS = {
-    "dado-local": ("basic", "local", "sem_contexto"),
-    "atividade-local": ("basic", "local", "sem_contexto"),
+    "dado-local": ("basic", "local", "sem_contexto", "bm25"),
+    "atividade-local": ("basic", "local", "sem_contexto", "bm25"),
     "dado-global": ("global", "local", "basic"),
     "atividade-global": ("global", "local", "basic"),
 }
@@ -78,6 +80,8 @@ async def responder(api, config, dados: dict, metodo: str, pergunta: str, format
         resp, ctx = await api.global_search(config=config, entities=dados["entities"], communities=dados["communities"],
                                             community_reports=dados["community_reports"], community_level=NIVEL_GLOBAL,
                                             dynamic_community_selection=False, response_type=formato, query=pergunta)
+    elif metodo == "bm25":
+        return await responder_bm25(config, dados["text_units"], dados["bm25"], RAIZ, pergunta, formato)
     else:
         return await sem_contexto(config, pergunta, formato)
     tamanhos = {k: len(v) for k, v in ctx.items()} if isinstance(ctx, dict) else {}
@@ -93,6 +97,7 @@ async def main_async(pasta: Path, escolhidas: set[str]) -> None:
                                                "vector_store": {"db_uri": str(saida / "lancedb")}})
     dados = {nome: pd.read_parquet(saida / f"{nome}.parquet")
              for nome in ("entities", "communities", "community_reports", "text_units", "relationships")}
+    dados["bm25"] = BM25(list(dados["text_units"]["text"]))
     base = pasta / "validacao" / "consultas"
     perguntas = json.loads((base / "perguntas.json").read_text(encoding="utf-8"))
     destino = base / "respostas"
